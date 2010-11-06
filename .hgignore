@@ -1,0 +1,7 @@
+syntax: glob
+DOC/
+*~
+*.hex
+*.elf
+*.o
+*.map
