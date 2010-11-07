@@ -6,8 +6,8 @@ FORMAT:=ihex
 ASOURCES:=
 CSOURCES:=main.c
 ifndef NDEBUG
-#ASOURCES+=uart.S
-#CSOURCES+=picofmt.c
+ASOURCES+=uart.S
+CSOURCES+=picofmt.c
 endif
 TESTS=picofmt
 DEFINES = F_CPU=12000000
