@@ -53,7 +53,8 @@ static volatile enum {
 	sigma_complete_underflow,
 	sigma_complete_overflow,
 } sigma_state NOINIT;
-static volatile uint16_t sigma_value NOINIT;
+static volatile uint8_t sigma_value NOINIT;
+const uint8_t timsk_default = _BV(OCIE0A);
 
 ISR(ANA_COMP_vect)
 {
@@ -65,7 +66,7 @@ ISR(ANA_COMP_vect)
 	TIFR = _BV(TOV1);
 	sigma_state = sigma_complete;
 
-	SENSOR_PORT |= _BV(SENSOR_PIN);
+//	SENSOR_PORT |= _BV(SENSOR_PIN);
 	SENSOR_DDR |= _BV(SENSOR_PIN);
 
 	/*
@@ -98,10 +99,10 @@ void sigma_init(void)
 	ACSR = acsr;
 	ACSR |= acsr | _BV(ACI) | _BV(ACIE);
 
-	TCCR1 = 0;
+	TCCR1 = _BV(CS13)|_BV(CS11)|_BV(CS10); // /1024
 	GTCCR = 0;
 	TIFR = _BV(TOV1);
-	TIMSK = _BV(TOIE1);
+	TIMSK = _BV(TOIE1) | timsk_default;
 	
 	sigma_state = sigma_idle;
 }
@@ -109,7 +110,7 @@ void sigma_init(void)
 void sigma_shutdown(void)
 {
 	ACSR = _BV(ACD) | _BV(ACI);
-	TIMSK = 0;
+	TIMSK = timsk_default;
 	TCCR1 = 0;
 	TIFR = _BV(TOV1);
 }
@@ -161,8 +162,58 @@ uint8_t sigma_wait(void)
 	return state;
 }
 
+volatile uint8_t g_ticks NOINIT;
+ISR(TIM0_COMPA_vect)
+{
+	++g_ticks;
+#if 0
+	// precharge
+	SENSOR_PORT |= _BV(SENSOR_PIN);
+	SENSOR_DDR |= _BV(SENSOR_PIN);
+	TCNT1 = 0;
+	GTCCR = _BV(PSR1);
+
+	sigma_state = sigma_ready;
+	_delay_us(1);	
+
+	// start sampling
+	const uint8_t ddr = SENSOR_DDR & (~_BV(SENSOR_PIN));
+	const uint8_t port = SENSOR_PORT & (~_BV(SENSOR_PIN));
+
+	sigma_state = sigma_sampling;
+
+	// fast path
+	TCCR1 = TIMER1_PRESCALER_VALUE(1); // ck
+	SENSOR_DDR = ddr;
+	SENSOR_PORT = port;
+#endif
+}
+
+void timer_init(void)
+{
+	g_ticks = 0;
+	OCR0A = 117;
+	TCCR0A = _BV(WGM01); // wgm=2, CTC mode
+	TCCR0B = _BV(CS02) | _BV(CS00); // div-by-1024
+	TIMSK = timsk_default;
+}
+
+void tick_wait(void)
+{
+	ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
+	{
+		const uint8_t tck = g_ticks;
+		while ( tck == g_ticks )
+			NONATOMIC_BLOCK(NONATOMIC_FORCEOFF)
+			{
+				sleep_cpu();
+			}
+	}
+}
+
 int main()
 {
+	DDRB = 0;
 #ifndef NDEBUG
 	uart_init(BAUDRATE_38400);
 	pfmt_out(PSTR("\r\nMCUSR: "));
@@ -170,22 +221,63 @@ int main()
 #endif
 
 	FOUT0("init");
+	timer_init();
 	sigma_init();
 	sei();
 
+#if 0
+	DDRB |= _BV(PB2);
+	for(;;)
+	{
+		if ( bit_is_set(ACSR, ACO) )
+			PORTB |= _BV(PB2);
+		else
+			PORTB &= ~_BV(PB2);
+	}
+#endif
+
+	DDRB|=_BV(PB0);
+	PORTB&=~_BV(PB0);
 	for(; 1 ;)
 	{
-		//FOUT0("start");
+		sigma_reset();
 		sigma_start();
-		//FOUT0("wait");
 		const uint8_t state = sigma_wait();
+		/* poll-wait
+		uint8_t count;
+		uint8_t mode;
+		if ( bit_is_set(ACSR, ACO) )
+		{
+			loop_until_bit_is_clear(ACSR, ACO);
+			count = TCNT1;
+			mode = 1;
+		}
+		else
+		{
+			loop_until_bit_is_set(ACSR, ACO);
+			count = TCNT1;
+			mode = 2;
+		}
+		if ( sigma_state == sigma_complete_overflow )
+			count = 0xff;
+		*/
+
 		cli();
-		//FOUT2("data: $0 state $1", sigma_value, state);
+		/*
+		  FOUT2("data: $0 state $1", sigma_value, state);
+		*/
+		/**/
 		if ( sigma_complete == state )
 			FOUT1("D: $0", sigma_value);
+		else if ( sigma_complete_overflow == state )
+			FOUT0("over");
+		/**/
+		/*
+		  FOUT2("D: $0 M: $1", count, mode);
+		*/
 		sei();
-		sigma_reset();
-	}
 
+		tick_wait();
+	}
 	return 0;
 }
