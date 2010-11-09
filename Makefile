@@ -65,13 +65,13 @@ release:
 	$(MAKE) NDEBUG=1 build
 
 flash:
-	/opt/bin/avreal -aft2232 +tiny45 -o500khz -e -w -c $(TARGET).flash.hex -v
+	/opt/bin/avreal -aft2232 +tiny45 -o250khz -e -w -c $(TARGET).flash.hex -v
 
 flash-fuses:
-	/opt/bin/avreal -aft2232 +tiny45 -o500khz -w -f$(AVREAL_FUSES) -v
+	/opt/bin/avreal -aft2232 +tiny45 -o250khz -w -f$(AVREAL_FUSES) -v
 
 flash-eeprom:
-	/opt/bin/avreal -aft2232 +tiny45 -o500khz -w -d $(TARGET).eeprom.hex -v
+	/opt/bin/avreal -aft2232 +tiny45 -o250khz -w -d $(TARGET).eeprom.hex -v
 
 $(TARGET).flash.hex: $(TARGET).elf
 	$(OBJCOPY) -O $(FORMAT) -R .eeprom -R .fuse $< $@
