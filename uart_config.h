@@ -1,15 +1,15 @@
 
 /* direction bit for transmission */
-#define UART_TXDB DDB0
+#define UART_TXDB DDB2
 
 /* value bit for transmission */
-#define UART_TXB  PB0
+#define UART_TXB  PB2
 
 /* direction bit for receiving */
-#define UART_RXDB DDB2
+#define UART_RXDB DDB3
 
 /* value bit for receiving */
-#define UART_RXB  PB2
+#define UART_RXB  PB3
 
 /* port to use */
 #define UART_PORT PORTB
