@@ -49,7 +49,7 @@ LDFLAGS = $(COMMON_FLAGS)
 LDFLAGS += -Wl,-Map=$(TARGET).map,--cref
 LDFLAGS += -B$(AVRLIB)/lib
 
-FLASHOPTS = -aft2232:enable=~acbus1 +tiny45 -o250khz
+FLASHOPTS = -aft2232:enable=~acbus1 +tiny45 -o100khz
 #
 # build mechanics
 #
