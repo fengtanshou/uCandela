@@ -173,7 +173,7 @@ sampler_get_next_sample(void)
 	if ( cf_overflow == flags )
 	{
 		capture_state.prescaler = ( ps >= prescaler_max ? prescaler_max : ps+1 );
-		return 0;
+		return UINT16_MAX;
 	}
 	if ( capture_state.value < underflow_threshold )
 	{

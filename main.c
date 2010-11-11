@@ -68,8 +68,6 @@ int main()
 	{
 		tick_wait();
 		uint16_t value = sampler_get_next_sample();
-		if ( 0 == value )
-			continue;
 
 		ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
 		{
