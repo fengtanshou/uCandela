@@ -31,7 +31,7 @@ OBJCOPY:=avr-objcopy
 AVRLIB:=/usr/lib/avr
 
 #COMMON_FLAGS = -Xlinker -Tdata -Xlinker 0x800100
-COMMON_FLAGS += -Os -Wall -mmcu=attiny25 -D__AVR_ATtiny25__
+COMMON_FLAGS += -Os -Wall -mmcu=attiny45 -D__AVR_ATtiny45__
 COMMON_FLAGS += $(addprefix -D,$(DEFINES))
 ifdef NDEBUG
 COMMON_FLAGS += -DNDEBUG=1
@@ -49,6 +49,7 @@ LDFLAGS = $(COMMON_FLAGS)
 LDFLAGS += -Wl,-Map=$(TARGET).map,--cref
 LDFLAGS += -B$(AVRLIB)/lib
 
+FLASHOPTS = -aft2232:enable=~acbus1 +tiny45 -o250khz
 #
 # build mechanics
 #
@@ -65,13 +66,13 @@ release:
 	$(MAKE) NDEBUG=1 build
 
 flash:
-	/opt/bin/avreal -aft2232 +tiny45 -o250khz -e -w -c $(TARGET).flash.hex -v
+	/opt/bin/avreal $(FLASHOPTS) -e -w -c $(TARGET).flash.hex -v
 
 flash-fuses:
-	/opt/bin/avreal -aft2232 +tiny45 -o250khz -w -f$(AVREAL_FUSES) -v
+	/opt/bin/avreal $(FLASHOPTS) -w -f$(AVREAL_FUSES) -v
 
 flash-eeprom:
-	/opt/bin/avreal -aft2232 +tiny45 -o250khz -w -d $(TARGET).eeprom.hex -v
+	/opt/bin/avreal $(FLASHOPTS) -w -d $(TARGET).eeprom.hex -v
 
 $(TARGET).flash.hex: $(TARGET).elf
 	$(OBJCOPY) -O $(FORMAT) -R .eeprom -R .fuse $< $@
