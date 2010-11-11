@@ -4,7 +4,7 @@
 TARGET:=sensor
 FORMAT:=ihex
 ASOURCES:=
-CSOURCES:=main.c
+CSOURCES:=main.c sampler.c
 ifndef NDEBUG
 ASOURCES+=uart.S
 CSOURCES+=picofmt.c
