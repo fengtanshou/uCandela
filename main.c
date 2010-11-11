@@ -27,7 +27,6 @@
 #endif
 
 #define BAUDRATE_38400 99
-const uint8_t timsk_default = _BV(OCIE0A);
 
 volatile uint8_t g_ticks NOINIT;
 ISR(TIM0_COMPA_vect)
@@ -41,7 +40,7 @@ void timer_init(void)
 	OCR0A = 117;
 	TCCR0A = _BV(WGM01); // wgm=2, CTC mode
 	TCCR0B = _BV(CS02) | _BV(CS00); // div-by-1024
-	TIMSK = timsk_default;
+	TIMSK = _BV(OCIE0A);
 }
 
 void tick_wait(void)
