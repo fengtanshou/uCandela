@@ -10,9 +10,9 @@
 #define INPUT_PORT PORTB
 #define INPUT_DDR  DDRB
 
-#include <stdint.h>
+#include "fplib.h"
 
 void sampler_init(void);
-uint16_t sampler_get_next_sample(void);
+fp16_t sampler_get_next_sample(void);
 
 #endif /* SAMPLER_H_INC */

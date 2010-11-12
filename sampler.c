@@ -3,7 +3,7 @@
 #include <avr/interrupt.h>
 #include <avr/sleep.h>
 
-#define MAX_PRESCALER 9  /* div-by-256 for 16-bit result */
+#define MAX_PRESCALER 15
 #define COUNT_MAX 0xFF
 
 static const uint8_t prescaler_min = 1;
@@ -159,7 +159,7 @@ sampler_init(void)
 	capture_reset(capture_mode_rising);
 }
 
-uint16_t
+fp16_t
 sampler_get_next_sample(void)
 {
 	const uint8_t ps = capture_state.prescaler;
@@ -181,5 +181,5 @@ sampler_get_next_sample(void)
 	}
 
 	/* return adjusted result based on prescaler */
-	return ((uint16_t)capture_state.value) << (ps-1);
+	return fp_compose( ((uint16_t)capture_state.value)<<8, ps-1 );
 }
