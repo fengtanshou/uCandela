@@ -69,10 +69,14 @@ int main()
 		tick_wait();
 		const uint16_t raw = sampler_get_next_sample();
 		const uint16_t level = fp_reciprocal(raw);
+		const uint32_t i_level = fp_to_uint32(level);
 
 		ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
 		{
+			/*
 			FOUT2("Data: $0 Lvl: $1", raw, level);
+			*/
+			FOUT2("Light: $0$1",i_level>>16,i_level&0xFFFF);
 		}
 	}
 	return 0;

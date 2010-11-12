@@ -17,6 +17,7 @@ inline fp16_t fp_compose(uint16_t mantissa, uint8_t exponent) FORCEINLINE;
 inline uint16_t fp_extract_sig(fp16_t f) FORCEINLINE;
 inline uint8_t fp_extract_exp(fp16_t f) FORCEINLINE;
 inline fp16_t fp_reciprocal(fp16_t f) FORCEINLINE;
+inline uint32_t fp_to_uint32(fp16_t f) FORCEINLINE;
 
 inline fp16_t fp_compose(uint16_t mantissa, uint8_t exponent)
 {
@@ -39,6 +40,11 @@ inline fp16_t fp_reciprocal(fp16_t f)
 	const uint16_t sig = fp_extract_sig(f);
 	const uint8_t exp = fp_extract_exp(f);
 	return fp_compose(0x1000000UL/sig, 0x10-exp-1);
+}
+
+inline uint32_t fp_to_uint32(fp16_t f)
+{
+	return ((uint32_t)fp_extract_sig(f)) << fp_extract_exp(f);
 }
 
 #endif /* FPLIB_H_INC */
