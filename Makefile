@@ -74,6 +74,10 @@ flash-fuses:
 flash-eeprom:
 	/opt/bin/avreal $(FLASHOPTS) -w -d $(TARGET).eeprom.hex -v
 
+eeread:
+	/opt/bin/avreal $(FLASHOPTS) -r -d _read.eeprom.hex &&\
+		$(OBJCOPY) -I ihex -O binary _read.eeprom.hex _read.eeprom.bin
+
 $(TARGET).flash.hex: $(TARGET).elf
 	$(OBJCOPY) -O $(FORMAT) -R .eeprom -R .fuse -R .noinit $< $@
 
