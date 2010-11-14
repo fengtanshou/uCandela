@@ -75,7 +75,7 @@ flash-eeprom:
 	/opt/bin/avreal $(FLASHOPTS) -w -d $(TARGET).eeprom.hex -v
 
 $(TARGET).flash.hex: $(TARGET).elf
-	$(OBJCOPY) -O $(FORMAT) -R .eeprom -R .fuse $< $@
+	$(OBJCOPY) -O $(FORMAT) -R .eeprom -R .fuse -R .noinit $< $@
 
 $(TARGET).eeprom.hex: $(TARGET).elf
 	-$(OBJCOPY) -j .eeprom --set-section-flags=.eeprom="alloc,load" \
