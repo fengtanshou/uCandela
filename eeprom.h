@@ -10,7 +10,7 @@
 
 typedef uint8_t eesize_t;
 
-eesize_t eeprom_write_block_intr(const void *src,void *dst, eesize_t size);
+size_t eeprom_write_block_intr(const void *src,void *dst, size_t size);
 uint8_t eeprom_check_complete();
 
 #endif /* EEPROM_H_INC */

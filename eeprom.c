@@ -3,7 +3,9 @@
 #include <util/atomic.h>
 
 
-typedef uint8_t intr_atomic_t;
+#define EECR_PM ( (0<<EEPM1) | (0<<EEPM0) )
+
+typedef volatile uint8_t intr_atomic_t;
 
 enum eeprom_io_flags
 {
@@ -11,45 +13,41 @@ enum eeprom_io_flags
 	eif_inprogress = 1<<0,
 };
 
-static volatile struct
+static struct
 {
 	const void *src;
 	void *dst;
-	eesize_t length;
-	eesize_t pos;
+	size_t length;
 	intr_atomic_t flags;
-}io = 
-{
-	.pos = 0,
-	.length = 0,
-	.flags = eif_default,
-};
+}io;
 
 inline static void __write_next_byte(void)
 {
-	const uint8_t eepm = (0<<EEPM1) | (0<<EEPM0); // erase-then-write
-	const uint8_t eecr = eepm | _BV(EERIE);
-	EEAR =   (uint16_t)(io.dst + io.pos);
-	EEDR = *((uint8_t*)(io.src + io.pos));
-	EECR = eecr | _BV(EEMPE);
-	EECR = eecr | _BV(EEMPE) | _BV(EEPE);
+	EECR = EECR_PM | _BV(EERIE);
+
+	EEAR =  (uint16_t)io.dst++;
+	EEDR = *(uint8_t*)io.src++;
+	--io.length;
+
+	EECR |= _BV(EEMPE);
+	EECR |= _BV(EEPE);
 }
 
 ISR(EE_RDY_vect)
 {
-	/* disable eeprom */
-	if ( io.pos == io.length )
+	/* stop operation */
+	if ( !io.length )
 	{
 		io.flags = eif_default;
 		EECR = 0;
 		return;
 	}
 
+	/* continue */
 	__write_next_byte();
-	++io.pos;
 }
 
-eesize_t eeprom_write_block_intr(const void *src,void *dst, eesize_t size)
+size_t eeprom_write_block_intr(const void *src,void *dst, size_t size)
 {
 	size_t r = -1U;
 	if ( io.flags & eif_inprogress )
@@ -58,7 +56,6 @@ eesize_t eeprom_write_block_intr(const void *src,void *dst, eesize_t size)
 	io.src = src;
 	io.dst = dst;
 	io.length = size;
-	io.pos = 0;
 	io.flags = eif_default | eif_inprogress;
 
 	EECR = _BV(EERIE);
