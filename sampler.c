@@ -3,11 +3,10 @@
 #include <avr/interrupt.h>
 #include <avr/sleep.h>
 
-#define MAX_PRESCALER 15
 #define COUNT_MAX 0xFF
 
 static const uint8_t prescaler_min = 1;
-static const uint8_t prescaler_max = MAX_PRESCALER;
+static const uint8_t prescaler_max = 15;
 static const uint8_t acsr_acis_falling = _BV(ACIS1);
 static const uint8_t acsr_acis_rising = (_BV(ACIS1) | _BV(ACIS0));
 static const uint8_t acsr_acis_toggle = 0;
@@ -29,13 +28,7 @@ static struct {
 	uint8_t value;
 	volatile uint8_t flags;
 	uint8_t prescaler;
-} capture_state =
-{
-	.value = 0,
-	.flags = cf_ready,
-	.prescaler = MAX_PRESCALER,
-};
-
+} capture_state;
 
 /* timer control */
 
@@ -156,6 +149,7 @@ ISR(TIM1_OVF_vect)
 void
 sampler_init(void)
 {
+	capture_state.prescaler = prescaler_max;
 	capture_reset(capture_mode_rising);
 }
 
