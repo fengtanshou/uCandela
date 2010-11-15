@@ -13,6 +13,14 @@ CPU=attiny45
 DEFINES = F_CPU=12000000
 USBDRV=vusb
 
+ifeq ($(USBDRV),vusb)
+ASOURCES += usbdrv/usbdrvasm.S
+CSOURCES += usbdrv/usbdrv.c
+DEFINES += USBDRV=vusb
+else
+$(error USB driver '$(USBDRV)' not suppoted)
+endif
+
 #
 # settings
 #

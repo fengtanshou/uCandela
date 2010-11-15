@@ -8,10 +8,24 @@
 #include <stdint.h>
 #include "sampler.h"
 
+/* include debug features */
 #ifndef NDEBUG
 #include "picofmt.h"
 #include "uart.h"
 #endif
+
+/* include proper usb driver headers */
+#ifndef USBDRV
+#error no USB driver selected
+#endif
+
+#if USBDRV == vusb
+#include "usbdrv/usbdrv.h"
+#else /* USBDRV */
+#error USB driver not supported
+#endif /* USBDRV */
+
+
 
 /*
  * debug facilities
@@ -48,6 +62,11 @@ void tick_wait(void)
 	const uint8_t tck = g_ticks;
 	while ( tck == g_ticks )
 		sleep_cpu();
+}
+
+USB_PUBLIC usbMsgLen_t usbFunctionSetup(uchar data[8])
+{
+	return 0;
 }
 
 int main()
