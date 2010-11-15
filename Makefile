@@ -68,21 +68,23 @@ COBJECTS:=$(CSOURCES:.c=.o)
 OBJECTS:=$(AOBJECTS) $(COBJECTS)
 
 all: build
-	avr-size -A -d $(TARGET).elf
 
-build: $(TARGET).flash.hex $(TARGET).eeprom.hex
+hex: $(TARGET).flash.hex $(TARGET).eeprom.hex
+
+build: $(TARGET).elf
+	avr-size -A -d $^
 
 release:
 	$(MAKE) NDEBUG=1 build
 
 flash: AVREAL_COMMAND=-e -w -c $(TARGET).flash.hex -v
-flash: __avreal
+flash: $(TARGET).flash.hex __avreal
 
 flash-fuses: AVREAL_COMMAND=-w -f$(AVREAL_FUSES) -v
 flash-fuses: __avreal
 
 flash-eeprom: AVREAL_COMMAND=-w -d $(TARGET).eeprom.hex -v
-flash-eeprom: __avreal
+flash-eeprom: $(TARGET).eeprom.hex __avreal
 
 eeread: AVREAL_COMMAND=-r -d _read.eeprom.hex
 eeread: __avreal
