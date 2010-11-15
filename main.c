@@ -66,22 +66,31 @@ void tick_wait(void)
 
 USB_PUBLIC usbMsgLen_t usbFunctionSetup(uchar data[8])
 {
+	/* TODO: use USB_NO_MSG to implement data writing */
 	return 0;
 }
 
-int main()
+USB_PUBLIC uchar usbFunctionWrite(uchar *data, uchar len)
 {
-	DDRB = 0;
+	/* TODO: return 1 if all data consumed */
+	return 0;
+}
 
-#ifndef NDEBUG
-	uart_init(BAUDRATE_38400);
-	pfmt_out(PSTR("\r\nMCUSR: "));
-	pfmt_print_bits(PSTR("PEBW"), 0);
-#endif
+USB_PUBLIC uchar usbFunctionRead(uchar *data, uchar len)
+{
+	return 0;
+}
 
-	timer_init();
-	sei();
+__attribute__((noreturn)) void usb_main(void)
+{
+	for(;;)
+	{
+		usbPoll();
+	}
+}
 
+__attribute__((noreturn)) void serial_main(void)
+{
 	sampler_init();
 	for(;;)
 	{
@@ -98,5 +107,22 @@ int main()
 			FOUT2("Light: $0$1",i_level>>16,i_level&0xFFFF);
 		}
 	}
-	return 0;
+}
+
+int main()
+{
+	DDRB = 0;
+
+#ifndef NDEBUG
+	uart_init(BAUDRATE_38400);
+	pfmt_out(PSTR("\r\nMCUSR: "));
+	pfmt_print_bits(PSTR("PEBW"), 0);
+#endif
+
+//	timer_init();
+	usbInit();
+	sei();
+
+	//serial_main();
+	usb_main();
 }
