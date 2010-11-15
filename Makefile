@@ -9,8 +9,13 @@ ifndef NDEBUG
 ASOURCES+=uart.S
 CSOURCES+=picofmt.c
 endif
-TESTS=picofmt
+CPU=attiny45
 DEFINES = F_CPU=12000000
+USBDRV=vusb
+
+#
+# settings
+#
 
 #
 # (CKDIV=0) start with clk/8
@@ -20,18 +25,16 @@ DEFINES = F_CPU=12000000
 # (BODLEVEL=6) set BOD to 1v8
 # (WDTON=1) do not use wdt
 AVREAL_FUSES=RSTDISBL=1,DWEN=1,WDTON=1,EESAVE=1,BODLEVEL=7,CKDIV8=1,CKOUT=1,SUT=1,CKSEL=0xf
-
-#
-# compiler settings
-#
 CC:=avr-gcc
 AS:=avr-gcc
 LD:=avr-ld
 OBJCOPY:=avr-objcopy
 AVRLIB:=/usr/lib/avr
+AVREAL=/opt/bin/avreal
+AVREAL_OPTS = -aft2232:enable=~acbus1 -o100khz +$(CPU)
 
 #COMMON_FLAGS = -Xlinker -Tdata -Xlinker 0x800100
-COMMON_FLAGS += -Os -Wall -mmcu=attiny45 -D__AVR_ATtiny45__
+COMMON_FLAGS += -Os -Wall -mmcu=$(CPU)
 COMMON_FLAGS += $(addprefix -D,$(DEFINES))
 ifdef NDEBUG
 COMMON_FLAGS += -DNDEBUG=1
@@ -49,7 +52,6 @@ LDFLAGS = $(COMMON_FLAGS)
 LDFLAGS += -Wl,-Map=$(TARGET).map,--cref
 LDFLAGS += -B$(AVRLIB)/lib
 
-FLASHOPTS = -aft2232:enable=~acbus1 +tiny45 -o100khz
 #
 # build mechanics
 #
@@ -65,18 +67,21 @@ build: $(TARGET).flash.hex $(TARGET).eeprom.hex
 release:
 	$(MAKE) NDEBUG=1 build
 
-flash:
-	/opt/bin/avreal $(FLASHOPTS) -e -w -c $(TARGET).flash.hex -v
+flash: AVREAL_COMMAND=-e -w -c $(TARGET).flash.hex -v
+flash: __avreal
 
-flash-fuses:
-	/opt/bin/avreal $(FLASHOPTS) -w -f$(AVREAL_FUSES) -v
+flash-fuses: AVREAL_COMMAND=-w -f$(AVREAL_FUSES) -v
+flash-fuses: __avreal
 
-flash-eeprom:
-	/opt/bin/avreal $(FLASHOPTS) -w -d $(TARGET).eeprom.hex -v
+flash-eeprom: AVREAL_COMMAND=-w -d $(TARGET).eeprom.hex -v
+flash-eeprom: __avreal
 
-eeread:
-	/opt/bin/avreal $(FLASHOPTS) -r -d _read.eeprom.hex &&\
-		$(OBJCOPY) -I ihex -O binary _read.eeprom.hex _read.eeprom.bin
+eeread: AVREAL_COMMAND=-r -d _read.eeprom.hex
+eeread: __avreal
+	$(OBJCOPY) -I ihex -O binary _read.eeprom.hex _read.eeprom.bin && hexdump -C _read.eeprom.bin
+
+__avreal:
+	$(AVREAL) $(AVREAL_OPTS) $(AVREAL_COMMAND)
 
 $(TARGET).flash.hex: $(TARGET).elf
 	$(OBJCOPY) -O $(FORMAT) -R .eeprom -R .fuse -R .noinit $< $@
@@ -95,30 +100,6 @@ $(AOBJECTS):
 $(COBJECTS):
 %.o: %.c
 	$(CC) -c $(CFLAGS) $< -o $@
-
-#
-# host-based tests
-#
-
-TEST_EXECUTABLES=$(addprefix test_, $(TESTS))
-HOSTLD=ld
-HOSTCC=gcc
-HOSTCFLAGS=-g -O0 -Wall -I./hostcompat -std=c99
-HOSTLDFLAGS=
-
-test: build_test
-
-build_test: .tobj $(TEST_EXECUTABLES)
-
-$(TEST_EXECUTABLES):
-test_%: .tobj/test_%.o .tobj/%.o
-	$(HOSTCC) -o $@ $(HOSTLDFLAGS) $^
-
-.tobj/%.o: %.c
-	$(HOSTCC) -c -o $@ $(HOSTCFLAGS) $^
-
-.tobj:
-	mkdir -p .tobj
 
 #
 # utility
