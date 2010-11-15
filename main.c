@@ -1,4 +1,5 @@
 #include <avr/io.h>
+#include <avr/wdt.h>
 #include <avr/pgmspace.h>
 #include <avr/interrupt.h>
 #include <avr/sleep.h>
@@ -64,6 +65,23 @@ void tick_wait(void)
 		sleep_cpu();
 }
 
+__attribute__((section(".noinit")))
+uint8_t mcusr_mirror;
+
+__attribute__((section(".init3")))
+__attribute__((naked))
+void early_init(void)
+{
+	mcusr_mirror = MCUSR;
+	wdt_disable();
+}
+
+__attribute__((section(".init9")))
+__attribute__((naked))
+void late_init(void)
+{
+}
+
 USB_PUBLIC usbMsgLen_t usbFunctionSetup(uchar data[8])
 {
 	/* TODO: use USB_NO_MSG to implement data writing */
@@ -81,11 +99,15 @@ USB_PUBLIC uchar usbFunctionRead(uchar *data, uchar len)
 	return 0;
 }
 
-__attribute__((noreturn)) void usb_main(void)
+__attribute__((noreturn)) void usb_loop(void)
 {
 	for(;;)
 	{
 		usbPoll();
+		if ( usbInterruptIsReady() )
+		{
+			usbSetInterrupt(0/*TODO*/, 0/*TODO*/);
+		}
 	}
 }
 
@@ -113,16 +135,27 @@ int main()
 {
 	DDRB = 0;
 
+#if 0
 #ifndef NDEBUG
 	uart_init(BAUDRATE_38400);
 	pfmt_out(PSTR("\r\nMCUSR: "));
 	pfmt_print_bits(PSTR("PEBW"), 0);
 #endif
+#endif
 
-//	timer_init();
+	/*
+	timer_init();
+	sei();
+	serial_main();
+	*/
+
 	usbInit();
+
+	usbDeviceDisconnect();
+	_delay_ms(250);
+	usbDeviceConnect();
+
 	sei();
 
-	//serial_main();
-	usb_main();
+	usb_loop();
 }
