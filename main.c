@@ -43,18 +43,27 @@
 
 #define BAUDRATE_38400 99
 
-volatile uint8_t g_ticks NOINIT;
+volatile uint16_t g_ticks NOINIT;
 ISR(TIM0_COMPA_vect)
 {
 	++g_ticks;
 }
 
+#define HZ_100
+
 void timer_init(void)
 {
 	g_ticks = 0;
-	OCR0A = 117;
 	TCCR0A = _BV(WGM01); // wgm=2, CTC mode
+#if defined HZ_100
+	OCR0A = 117;
 	TCCR0B = _BV(CS02) | _BV(CS00); // div-by-1024
+#elif defined HZ_1000
+	OCR0A = 175;
+	TCCR0B = _BV(CS01) | _BV(CS00); // div-by-64
+#else
+#error no HZ_XXX defined
+#endif
 	TIMSK = _BV(OCIE0A);
 }
 
@@ -131,24 +140,25 @@ __attribute__((noreturn)) void serial_main(void)
 	}
 }
 
+#define SERIAL
 int main()
 {
 	DDRB = 0;
 
-#if 0
+#ifdef SERIAL
 #ifndef NDEBUG
 	uart_init(BAUDRATE_38400);
 	pfmt_out(PSTR("\r\nMCUSR: "));
 	pfmt_print_bits(PSTR("PEBW"), 0);
 #endif
-#endif
 
-	/*
 	timer_init();
+	sampler_init();
 	sei();
 	serial_main();
-	*/
+#endif // SERIAL
 
+#ifndef SERIAL
 	usbInit();
 
 	usbDeviceDisconnect();
@@ -158,4 +168,5 @@ int main()
 	sei();
 
 	usb_loop();
+#endif // SERIAL
 }
