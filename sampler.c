@@ -145,27 +145,45 @@ sampler_init(void)
 	capture_reset(capture_mode_rising);
 }
 
-fp16_t
-sampler_get_next_sample(void)
+void sampler_start(void)
 {
-	const uint8_t ps = s_prescaler;
+	capture_start(s_prescaler);
+}
 
-	capture_start(ps);
-	/* wait for the operation to complete */
-	do { sleep_cpu(); } while ( timer1_is_running() );
+uint8_t  sampler_poll(void)
+{
+	/* check if it is still running */
+	if ( timer1_is_running() )
+		return 0;
+
+	/* completed, stop and recharge */
 	capture_stop();
 
-	/* process result */
+	/* adjust for next measurement */
+	const uint8_t ps = s_prescaler;
 	if ( sampler_value >= overflow_threshold )
 	{
 		s_prescaler = ( ps >= prescaler_max ? prescaler_max : ps+1 );
-		return UINT16_MAX;
 	}
 	if ( sampler_value < underflow_threshold )
 	{
 		s_prescaler = ( ps <= prescaler_min ? prescaler_min : ps-1 );
 	}
+	return 1;
+}
 
+fp16_t sampler_get_sample(void)
+{
 	/* return adjusted result based on prescaler */
-	return fp_compose( ((uint16_t)sampler_value)<<8, ps-1 );
+	return fp_compose( ((uint16_t)sampler_value)<<8, s_prescaler - 1 );
+}
+
+fp16_t
+sampler_get_next_sample(void)
+{
+	capture_start(s_prescaler);
+
+	while ( !sampler_poll() ) sleep_cpu();
+
+	return sampler_get_sample();
 }
