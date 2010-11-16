@@ -3,23 +3,13 @@
 #
 TARGET:=sensor
 FORMAT:=ihex
-ASOURCES:=sampler_irq.S
-CSOURCES:=main.c sampler.c
-ifndef NDEBUG
-ASOURCES+=uart.S
-CSOURCES+=picofmt.c
-endif
 CPU=attiny45
 DEFINES = F_CPU=12000000
-USBDRV=vusb
+FEAT_WITH_USB ?= no
+FEAT_WITH_SERIAL ?= yes
+FEAT_USB_DRIVER ?= vusb
 
-ifeq ($(USBDRV),vusb)
-ASOURCES += usbdrv/usbdrvasm.S
-CSOURCES += usbdrv/usbdrv.c
-DEFINES += USBDRV=vusb
-else
-$(error USB driver '$(USBDRV)' not suppoted)
-endif
+include Makefile.features
 
 #
 # settings

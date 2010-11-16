@@ -1,0 +1,20 @@
+
+ASOURCES += sampler_irq.S
+CSOURCES += sampler.c
+
+ifeq '$(FEAT_WITH_SERIAL)' 'yes'
+CSOURCES += serial_main.c
+CSOURCES += picofmt.c
+ASOURCES += uart.S
+endif
+
+ifeq '$(FEAT_WITH_USB)' 'yes'
+CSOURCES += main.c
+
+ifeq '$(FEAT_USB_DRIVER)' 'vusb'
+ASOURCES += usbdrv/usbdrvasm.S
+CSOURCES += usbdrv/usbdrv.c
+DEFINES += USBDRV=vusb
+endif # FEAT_USB_DRIVER
+
+endif # FEAT_WITH_USB

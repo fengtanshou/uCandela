@@ -1,19 +1,6 @@
-#include <avr/io.h>
-#include <avr/wdt.h>
-#include <avr/pgmspace.h>
-#include <avr/interrupt.h>
-#include <avr/sleep.h>
-#include <avr/fuse.h>
-#include <util/atomic.h>
-#include <util/delay.h>
-#include <stdint.h>
+/* peripherials */
+#include "compiler.h"
 #include "sampler.h"
-
-/* include debug features */
-#ifndef NDEBUG
-#include "picofmt.h"
-#include "uart.h"
-#endif
 
 /* include proper usb driver headers */
 #ifndef USBDRV
@@ -26,69 +13,22 @@
 #error USB driver not supported
 #endif /* USBDRV */
 
+/* library headers */
+#include <util/delay.h>
+#include <avr/interrupt.h>
+#include <avr/wdt.h>
 
+NOINIT uint8_t mcusr_mirror;
 
-/*
- * debug facilities
- */
-#ifndef NDEBUG
-#define DPRINT(msg) pfmt_outln(PSTR(msg))
-#else // NDEBUG
-#define DPRINT(msg) ((void)0)
-#endif // NDEBUG
-
-#ifndef NOINIT
-#define NOINIT __attribute__((section(".noinit")))
-#endif
-
-#define BAUDRATE_38400 99
-
-volatile uint16_t g_ticks NOINIT;
-ISR(TIM0_COMPA_vect)
-{
-	++g_ticks;
-}
-
-#define HZ_100
-
-void timer_init(void)
-{
-	g_ticks = 0;
-	TCCR0A = _BV(WGM01); // wgm=2, CTC mode
-#if defined HZ_100
-	OCR0A = 117;
-	TCCR0B = _BV(CS02) | _BV(CS00); // div-by-1024
-#elif defined HZ_1000
-	OCR0A = 175;
-	TCCR0B = _BV(CS01) | _BV(CS00); // div-by-64
-#else
-#error no HZ_XXX defined
-#endif
-	TIMSK = _BV(OCIE0A);
-}
-
-void tick_wait(void)
-{
-	const uint8_t tck = g_ticks;
-	while ( tck == g_ticks )
-		sleep_cpu();
-}
-
-__attribute__((section(".noinit")))
-uint8_t mcusr_mirror;
-
-__attribute__((section(".init3")))
-__attribute__((naked))
-void early_init(void)
+INIT_FUNC_3 void early_init(void)
 {
 	mcusr_mirror = MCUSR;
 	wdt_disable();
 }
 
-__attribute__((section(".init9")))
-__attribute__((naked))
-void late_init(void)
+INIT_FUNC_8 void late_init(void)
 {
+	usbInit();
 }
 
 USB_PUBLIC usbMsgLen_t usbFunctionSetup(uchar data[8])
@@ -108,8 +48,17 @@ USB_PUBLIC uchar usbFunctionRead(uchar *data, uchar len)
 	return 0;
 }
 
-__attribute__((noreturn)) void usb_loop(void)
+#if defined(__GNUC__) && defined(__AVR__)
+int main(void) __attribute__((OS_main));
+#endif
+int main(void)
 {
+	usbDeviceDisconnect();
+	_delay_ms(250);
+	usbDeviceConnect();
+
+	sei();
+
 	for(;;)
 	{
 		usbPoll();
@@ -118,55 +67,4 @@ __attribute__((noreturn)) void usb_loop(void)
 			usbSetInterrupt(0/*TODO*/, 0/*TODO*/);
 		}
 	}
-}
-
-__attribute__((noreturn)) void serial_main(void)
-{
-	sampler_init();
-	for(;;)
-	{
-		tick_wait();
-		const uint16_t raw = sampler_get_next_sample();
-		const uint16_t level = fp_reciprocal(raw);
-		const uint32_t i_level = fp_to_uint32(level);
-
-		ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
-		{
-			/*
-			FOUT2("Data: $0 Lvl: $1", raw, level);
-			*/
-			FOUT2("Light: $0$1",i_level>>16,i_level&0xFFFF);
-		}
-	}
-}
-
-#define SERIAL
-int main()
-{
-	DDRB = 0;
-
-#ifdef SERIAL
-#ifndef NDEBUG
-	uart_init(BAUDRATE_38400);
-	pfmt_out(PSTR("\r\nMCUSR: "));
-	pfmt_print_bits(PSTR("PEBW"), 0);
-#endif
-
-	timer_init();
-	sampler_init();
-	sei();
-	serial_main();
-#endif // SERIAL
-
-#ifndef SERIAL
-	usbInit();
-
-	usbDeviceDisconnect();
-	_delay_ms(250);
-	usbDeviceConnect();
-
-	sei();
-
-	usb_loop();
-#endif // SERIAL
 }
