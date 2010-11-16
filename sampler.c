@@ -88,13 +88,38 @@ input_discharge(void)
 }
 
 
+/* comparator control */
+
+static inline void
+comp_enable(void)
+{
+	ACSR |= _BV(ACI) | _BV(ACIE);
+}
+
+static inline void
+comp_disable(void)
+{
+	ACSR &= ~_BV(ACIE);
+	ACSR |= _BV(ACI);
+}
+
+static inline void
+comp_set_mode(enum capture_mode mode)
+{
+	ACSR = 0
+		| _BV(ACBG)
+		| ( capture_mode_rising == mode ? acsr_acis_rising : acsr_acis_falling )
+		;
+}
+
 /* capture control */
 
 static inline void
 capture_stop(void)
 {
-	ACSR &= ~_BV(ACIE);
-	ACSR |= _BV(ACI);
+	comp_disable();
+	timer1_disable();
+	input_precharge_high();
 }
 
 static void
@@ -102,7 +127,7 @@ capture_start(uint8_t speed_index)
 {
 	capture_state.flags = cf_running;
 
-	ACSR |= _BV(ACI) | _BV(ACIE);
+	comp_enable();
 	timer1_run(speed_index);
 	input_discharge();
 }
@@ -112,10 +137,7 @@ capture_reset(enum capture_mode mode)
 {
 	input_precharge_high();
 
-	ACSR = 0
-		| _BV(ACBG)
-		| ( capture_mode_rising == mode ? acsr_acis_rising : acsr_acis_falling )
-		;
+	comp_set_mode(mode);
 	timer1_enable(0);
 
 	capture_state.flags = cf_ready;
@@ -124,24 +146,20 @@ capture_reset(enum capture_mode mode)
 /* interrupts */
 ISR(ANA_COMP_vect)
 {
-	capture_state.value = TCNT1;
-
-	timer1_disable();
-	capture_stop();
-	input_precharge_high();
-
+	/* fast path, must be faster than 25 clk */
+	if ( capture_state.flags != cf_running )
+		return;
 	capture_state.flags = cf_ready;
+	capture_state.value = TCNT1;
 }
 
 ISR(TIM1_OVF_vect)
 {
-	capture_state.value = COUNT_MAX;
-
-	timer1_disable();
-	capture_stop();
-	input_precharge_high();
-
+	/* fast path, must be faster than 25 clk */
+	if ( capture_state.flags != cf_running )
+		return;
 	capture_state.flags = cf_overflow;
+	capture_state.value = COUNT_MAX;
 }
 
 
@@ -162,6 +180,7 @@ sampler_get_next_sample(void)
 	/* wait for the operation to complete */
 	uint8_t flags;
 	do { sleep_cpu(); } while ( cf_running == (flags=capture_state.flags) );
+	capture_stop();
 
 	/* process result */
 	if ( cf_overflow == flags )
