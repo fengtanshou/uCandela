@@ -3,8 +3,8 @@
 #
 TARGET:=sensor
 FORMAT:=ihex
-ASOURCES:=
-CSOURCES:=main.c sampler.c eeprom.c
+ASOURCES:=sampler_irq.S
+CSOURCES:=main.c sampler.c
 ifndef NDEBUG
 ASOURCES+=uart.S
 CSOURCES+=picofmt.c
