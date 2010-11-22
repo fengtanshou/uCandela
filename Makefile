@@ -5,8 +5,8 @@ TARGET:=sensor
 FORMAT:=ihex
 CPU=attiny45
 DEFINES = F_CPU=12000000
-FEAT_WITH_USB ?= no
-FEAT_WITH_SERIAL ?= yes
+FEAT_WITH_USB ?= yes
+FEAT_WITH_SERIAL ?= no
 FEAT_USB_DRIVER ?= vusb
 
 include Makefile.features
