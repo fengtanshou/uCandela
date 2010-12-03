@@ -9,6 +9,9 @@
 
 typedef uint16_t fp16_t;
 
+#define FP16_MAX 0x10000000UL
+#define FP16_MIN 0x0
+
 #ifndef FORCEINLINE
 #define FORCEINLINE __attribute__((always_inline))
 #endif
@@ -39,12 +42,23 @@ inline fp16_t fp_reciprocal(fp16_t f)
 {
 	const uint16_t sig = fp_extract_sig(f);
 	const uint8_t exp = fp_extract_exp(f);
-	return fp_compose(0x1000000UL/sig, 0x10-exp-1);
+	return fp_compose(FP16_MAX/sig, 0x10-exp-1);
 }
 
 inline uint32_t fp_to_uint32(fp16_t f)
 {
-	return ((uint32_t)fp_extract_sig(f)) << fp_extract_exp(f);
+	return (((uint32_t)fp_extract_sig(f))>>4) << fp_extract_exp(f);
+}
+
+/* saves only top 16 bits out of 24 full precision */
+/*
+ * fp: sssE
+ * u32: 0xxxZZZZ (Z - can be zero depending on exponent)
+ * u16: xxxZ
+ */
+inline uint16_t fp_to_uint16(fp16_t f)
+{
+	return ((uint32_t)fp_extract_sig(f)) >> (0x10-fp_extract_exp(f));
 }
 
 #endif /* FPLIB_H_INC */
