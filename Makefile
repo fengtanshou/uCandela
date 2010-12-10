@@ -2,6 +2,7 @@
 TARGET=hidtool
 CSOURCES=hidtool.c
 
+CFLAGS+=-std=c99 -Wall -Werror -D_XOPEN_SOURCE -D_BSD_SOURCE -g
 CC=gcc
 CXX=g++
 
