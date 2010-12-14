@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <errno.h>
+#include <ctype.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -70,6 +71,7 @@ int hiddev_devinfo_fd(int fd, struct hiddev_attr *attrs);
 int hiddev_init_report(int fd);
 int hiddev_get_report(int fd, uint8_t *buf, size_t buf_size);
 int hiddev_get_feature_report(int fd, int report_id, unsigned char *buffer, size_t length);
+int hiddev_set_feature_report(int fd, int report_id, const unsigned char *buffer, size_t length);
 
 /*
  * basic code
@@ -88,10 +90,19 @@ void pretty_print_buffer(uint8_t *buf, size_t size)
 	size_t ofs = 0;
 	while ( ofs < size )
 	{
+		char str[20];
+		char *pstr = str;
+
 		printf("%04zx | ", ofs);
-		for(int count = 0; count!=16; ++count)
-			printf("%02x ", buf[ofs++]);
-		printf("\n");
+		for(int count = 0; count!=16 && ofs<size; ++count, ++ofs)
+		{
+			if ( isprint(buf[ofs]) ) *pstr++ = buf[ofs]; else *pstr++ = '.';
+			if ( count == 8 ) *pstr++ = ' ';
+			printf("%02x ", buf[ofs]);
+		}
+		*pstr++='\0';
+
+		printf(" | %s\n", str);
 	}
 }
 
@@ -196,8 +207,7 @@ int do_command_feature_get(int fd)
 		switch ( ch )
 		{
 		case 'i': report_id = strtoul(optarg, 0, 0); break;
-		default:
-			return -EINVAL;
+		default: return -EINVAL;
 		}
 	}
 
@@ -214,7 +224,33 @@ int do_command_feature_get(int fd)
 
 int do_command_feature_set(int fd)
 {
-	return -1;
+	int err = 0;
+	int report_id = 0;
+	uint8_t buf[256];
+
+	int ch;
+	while ( (ch=getopt(ARGC_, ARGV_, "i:")) != -1 )
+	{
+		switch ( ch )
+		{
+		case 'i': report_id = strtoul(optarg, 0, 0); break;
+		default: return -EINVAL;
+		}
+	}
+
+	shift_argv_n(optind);
+	int num_extra_args;
+	for(num_extra_args=0; num_extra_args!=256 && num_extra_args!=ARGC_; ++num_extra_args)
+		buf[num_extra_args] = strtoul(ARGV_[num_extra_args],0,0);
+	pretty_print_buffer(buf, num_extra_args);
+
+	err = hiddev_set_feature_report(fd, report_id, buf, num_extra_args);
+	if ( err < 0 )
+	{
+		ERR("hiddev_set_feature_report failure %d", err);
+		return err;
+	}
+	return err;
 }
 
 int do_command(char const *device)
@@ -516,7 +552,6 @@ int hiddev_get_report(int fd, uint8_t *buf, size_t buf_size)
 	};
 	
 	if ( ioctl(fd, HIDIOCGREPORT, &rinfo) == -1
-	     || (MSG("ioctl ok"),0)
 	     || (err = read(fd, &event, sizeof(event))) == -1 )
 	{
 		err = -errno;
@@ -527,6 +562,11 @@ int hiddev_get_report(int fd, uint8_t *buf, size_t buf_size)
 	DBG("event.hid=%x", event.hid);
 	DBG("event.value=%x", event.value);
 
+#ifndef min
+#define min(a,b) ( ((a)<(b))?(a):(b) )
+#endif
+	err = min(buf_size, sizeof(event.value));
+	memcpy(buf, &event.value, err);
 exit:
 	return err;
 }
@@ -588,6 +628,60 @@ int hiddev_get_feature_report(int fd, int report_id, unsigned char *buffer, size
 		buffer[i] = ref_multi_i.values[i];
 
 	return report_length;
+}
+
+int hiddev_set_feature_report(int fd, int report_id, const unsigned char *buffer, size_t length)
+{
+	int err = -1;
+	struct hiddev_report_info rinfo;
+	struct hiddev_field_info finfo;
+	struct hiddev_usage_ref_multi ref_multi_i;
+	int ret, report_length, i;
+
+	/* request info about the feature report (get byte length) */
+	finfo.report_type = HID_REPORT_TYPE_FEATURE;
+	finfo.report_id = report_id;
+	finfo.field_index = 0;
+	ret = ioctl(fd, HIDIOCGFIELDINFO, &finfo);
+	report_length = finfo.maxusage;
+	DBG("report length %d", report_length);
+	if ( length > report_length )
+	{
+		ERR("report length %d - buffer length %zd\n", report_length, length);
+		/* buffer too small */
+		return -ENOMEM;
+	}
+
+	/* multibyte transfer from local buffer */
+	for(i=0; i<report_length-1; i++)
+		ref_multi_i.values[i] = buffer[i];
+	ref_multi_i.uref.report_type = HID_REPORT_TYPE_FEATURE;
+	ref_multi_i.uref.report_id = report_id;
+	ref_multi_i.uref.field_index = 0;
+	ref_multi_i.uref.usage_index = 0; /* byte index??? */
+	ref_multi_i.uref.usage_code = 0;
+	ref_multi_i.num_values = report_length;
+	ret = ioctl(fd, HIDIOCGUSAGES, &ref_multi_i);
+	if (ret != 0)
+	{
+		int err = -errno;
+		ERR( "HIDIOCSUSAGES (%s)\n", strerror(errno));
+		return err;
+	}
+
+	/* send feature report */
+	rinfo.report_type = HID_REPORT_TYPE_FEATURE;
+	rinfo.report_id = report_id;
+	rinfo.num_fields = 1;
+	ret = ioctl(fd, HIDIOCSREPORT, &rinfo);
+	if (ret != 0)
+	{
+		int err = -errno;
+		ERR("HIDIOCSREPORT (%s)\n", strerror(errno));
+		return err;
+	}
+
+	return err;
 }
 
 /*
