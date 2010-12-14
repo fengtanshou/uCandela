@@ -92,6 +92,111 @@ void pretty_print_buffer(uint8_t *buf, size_t size)
 	}
 }
 
+int do_report_fields(int fd, struct hiddev_report_info const *rinfo)
+{
+	int err = 0;
+	struct hiddev_field_info finfo = {
+		.report_type = rinfo->report_type,
+		.report_id = rinfo->report_id,
+	};
+	for(unsigned int i=0; i!=rinfo->num_fields; ++i)
+	{
+		finfo.field_index = i;
+		if ( ioctl(fd, HIDIOCGFIELDINFO, &finfo) !=0 )
+		{
+			err = -errno;
+			ERR("HIDIOCGFIELDINFO failure %d", err);
+			goto exit;
+		}
+		MSG(
+"    [%d] maxusage=%x flags=%0x phys=%0x log=%0x app=%0x\n"
+"         logmin=%x logmax=%x physmin=%x physmax=%x\n"
+"         unit_exp=%x unit=%x",
+i, finfo.maxusage, finfo.flags, finfo.physical, finfo.logical, finfo.application,
+finfo.logical_minimum, finfo.logical_maximum, finfo.physical_minimum, finfo.physical_maximum,
+finfo.unit_exponent, finfo.unit);
+	}
+
+exit:
+	return err;
+}
+
+int do_report_info(int fd, int type)
+{
+	struct hiddev_report_info info = {
+		.report_type = type,
+		.report_id = HID_REPORT_ID_FIRST,
+	};
+	int err = 0;
+
+	MSG("Report %s", type==HID_REPORT_TYPE_INPUT ? "INPUT"
+	    : type==HID_REPORT_TYPE_OUTPUT ? "OUTPUT"
+	    : type==HID_REPORT_TYPE_FEATURE ? "FEATURE"
+	    : "???");
+
+	for(;;)
+	{
+		if ( ioctl(fd, HIDIOCGREPORTINFO, &info)!=0 && ((err=-errno)!=-EINVAL) )
+		{
+			ERR("HIDIOCGREPORTINFO failure %d", err);
+			goto exit;
+		}
+		if ( -EINVAL == err )
+			break;
+		MSG("  id=%d: %d fields", info.report_id, info.num_fields);
+		do_report_fields(fd, &info);
+		info.report_id |= HID_REPORT_ID_NEXT;
+	}
+exit:
+	return err;
+}
+
+int do_command_info(int fd)
+{
+	do_report_info(fd, HID_REPORT_TYPE_INPUT);
+	do_report_info(fd, HID_REPORT_TYPE_OUTPUT);
+	do_report_info(fd, HID_REPORT_TYPE_FEATURE);
+	return 0;
+}
+
+int do_command_getreport(int fd)
+{
+	uint8_t buf[256];
+
+	int err = hiddev_init_report(fd);
+	if ( err < 0 )
+	{
+		ERR("hiddev_init_report failure: %d", err);
+		goto exit;
+	}
+
+	err = hiddev_get_report(fd, buf, sizeof(buf));
+	if ( err < 0 )
+	{
+		ERR("hiddev_get_report failure: %d", err);
+		goto exit;
+	}
+	pretty_print_buffer(buf, err);
+
+exit:
+	return err;
+}
+
+int do_command_feature(int fd, int report_id)
+{
+	uint8_t buf[256];
+
+	int err = hiddev_get_feature_report(fd, report_id, buf, sizeof(buf));
+	if ( err < 0 )
+	{
+		ERR("hiddev_get_feature_report failure %d", err);
+		return err;
+	}
+
+	pretty_print_buffer(buf, err);
+	return err;
+}
+
 int do_command(char const *device, char const *command)
 {
 	int err;
@@ -121,26 +226,20 @@ int do_command(char const *device, char const *command)
 
 	if ( ! strcmp(command,"getreport") )
 	{
-		uint8_t buf[256];
-
-		err = hiddev_init_report(fd);
-		if ( err < 0 )
-		{
-			ERR("hiddev_init_report failure: %d", err);
-			goto exit_close;
-		}
-
-		//err = hiddev_get_report(fd, buf, sizeof(buf));
-		err = hiddev_get_feature_report(fd, 0, buf, sizeof(buf));
-		if ( err < 0 )
-		{
-			ERR("hiddev_get_report failure: %d", err);
-			goto exit_close;
-		}
-		pretty_print_buffer(buf, err);
+		err = do_command_getreport(fd);
 	}
-	else if ( ! strcmp(command,"setreport") )
+	if ( ! strcmp(command, "getfeature") )
 	{
+		err = do_command_feature(fd, 2);
+	}
+	else if ( !strcmp(command,"info") )
+	{
+		err = do_command_info(fd);
+	}
+	else
+	{
+		ERR("Bad command '%s'", command);
+		goto exit_close;
 	}
 	
 exit_close:
@@ -380,7 +479,7 @@ int hiddev_get_report(int fd, uint8_t *buf, size_t buf_size)
 	int err;
 	struct hiddev_event event;
 	struct hiddev_report_info rinfo = {
-		.report_type = HID_REPORT_TYPE_FEATURE,
+		.report_type = HID_REPORT_TYPE_INPUT,
 		.report_id = HID_REPORT_ID_FIRST,
 		.num_fields = 2
 	};
@@ -394,6 +493,8 @@ int hiddev_get_report(int fd, uint8_t *buf, size_t buf_size)
 	}
 	
 	DBG("got %d bytes of event data", err);
+	DBG("event.hid=%x", event.hid);
+	DBG("event.value=%x", event.value);
 
 exit:
 	return err;
@@ -452,8 +553,8 @@ int hiddev_get_feature_report(int fd, int report_id, unsigned char *buffer, size
 	 */
 	for(i=0; i!=report_length; ++i)
 		DBG("report[%d] = %04x", i, ref_multi_i.values[i]);
-//	for(i=0; i<report_length-1; i++)
-//		buffer[i] = ref_multi_i.values[i];
+	for(i=0; i<report_length-1; i++)
+		buffer[i] = ref_multi_i.values[i];
 
 	return report_length;
 }
