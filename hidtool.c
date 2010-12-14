@@ -54,11 +54,14 @@ struct hiddev_attr
  * globals
  */
 static const char devusb_dir_default[] = "/dev/usb";
-
+static int ARGC_=0;
+static char **ARGV_=0;
 
 /*
  * prototypes
  */
+char *shift_argv(void);
+char *shift_argv_n(unsigned n);
 char *concat_(char const *s1, char const *s2);
 int hiddev_find_device(char const *dirspec, char const **result, struct hiddev_attr const *search_attrs);
 int hiddev_check(char const *name, struct hiddev_attr const *search_attrs);
@@ -182,9 +185,21 @@ exit:
 	return err;
 }
 
-int do_command_feature(int fd, int report_id)
+int do_command_feature_get(int fd)
 {
+	int report_id = 0;
 	uint8_t buf[256];
+
+	int ch;
+	while ( (ch=getopt(ARGC_, ARGV_, "i:")) != -1 )
+	{
+		switch ( ch )
+		{
+		case 'i': report_id = strtoul(optarg, 0, 0); break;
+		default:
+			return -EINVAL;
+		}
+	}
 
 	int err = hiddev_get_feature_report(fd, report_id, buf, sizeof(buf));
 	if ( err < 0 )
@@ -197,7 +212,12 @@ int do_command_feature(int fd, int report_id)
 	return err;
 }
 
-int do_command(char const *device, char const *command)
+int do_command_feature_set(int fd)
+{
+	return -1;
+}
+
+int do_command(char const *device)
 {
 	int err;
 	int fd = -1;
@@ -221,6 +241,7 @@ int do_command(char const *device, char const *command)
 	pretty_print_hid_attrs(&attrs,"\t");
 
 	/* default command */
+	char *command = ARGV_[0];
 	if ( !command )
 		command = "getreport";
 
@@ -228,9 +249,13 @@ int do_command(char const *device, char const *command)
 	{
 		err = do_command_getreport(fd);
 	}
-	if ( ! strcmp(command, "getfeature") )
+	else if ( ! strcmp(command, "getfeature") )
 	{
-		err = do_command_feature(fd, 2);
+		err = do_command_feature_get(fd);
+	}
+	else if ( ! strcmp(command, "setfeature") )
+	{
+		err = do_command_feature_set(fd);
 	}
 	else if ( !strcmp(command,"info") )
 	{
@@ -255,6 +280,9 @@ int main(int argc, char **argv)
 	int ch;
 	char const *directory = devusb_dir_default;
 	char const *device = 0;
+
+	ARGC_ = argc;
+	ARGV_ = argv;
 
 	while( (ch=getopt(argc, argv, "d:D:v")) != -1 )
 	{
@@ -303,7 +331,10 @@ int main(int argc, char **argv)
 		exit(EXIT_FAILURE);
 	}
 
-	err = do_command(device, argv[optind]);
+	char *cmd;
+	cmd = shift_argv_n(optind);
+	DBG("Running command %s", cmd);
+	err = do_command(device);
 	if ( err < 0 )
 		exit(EXIT_FAILURE);
 	return 0;
@@ -577,4 +608,18 @@ char *concat_(char const *s1, char const *s2)
 		len = r+1;
 	}
 	return ptr;
+}
+
+char *shift_argv_n(unsigned n)
+{
+	if ( ARGC_ < n )
+		return 0;
+	ARGC_ -= n;
+	ARGV_ += n;
+	return *ARGV_;
+}
+
+char *shift_argv(void)
+{
+	return shift_argv_n(1);
 }
