@@ -11,15 +11,16 @@
 
 #define UCD_FEATURE_REPORT_COUNT 8
 
-/* size MUST be less than8 bytes */
 typedef struct
 {
 	uint8_t subrq_id;
 }ucd_mux_request_type;
 
+/* size MUST be  8 bytes */
 typedef struct
 {
-	uint8_t scale;
+	int8_t sensitivity;
+	uint8_t padding[7];
 	/* some other parameters to follow */
 }ucd_parameters_request_type;
 

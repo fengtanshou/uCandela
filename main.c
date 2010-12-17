@@ -18,20 +18,26 @@
 #include <util/delay.h>
 #include <avr/interrupt.h>
 #include <avr/wdt.h>
+#include <avr/eeprom.h>
 #include <string.h>
 
 /* definitions */
 #define USBRQ_HID_REPORT_TYPE_INPUT 1
 #define USBRQ_HID_REPORT_TYPE_OUTPUT 2
 #define USBRQ_HID_REPORT_TYPE_FEATURE 3
+#define DEFAULT_SENSITIVITY 0
 
 /* globals */
 NOINIT uint8_t mcusr_mirror;
+static uint8_t sensitivity;
 static uint16_t input_report;
 static uint8_t feature_report[UCD_FEATURE_REPORT_COUNT+1];
 static uint8_t active_subrq_mux;
 static uint8_t nb_write_transfer;
 static uint8_t nb_write_max;
+static uint8_t *ps_eeprom_transfer;
+static uint8_t *pd_eeprom_transfer;
+static uint8_t nb_eeprom_transfer;
 
 /* we use combined report, INPUT returns data, FEATURE allows for controlling of parameters */
 PROGMEM char usbHidReportDescriptor[63] = {
@@ -66,10 +72,56 @@ PROGMEM char usbHidReportDescriptor[63] = {
 	0xc0,
 };
 
+ucd_calibration_request_type ee_calibration[4] EEMEM;
 
 /*
  * USB part
  */
+void sensor_read_feature_data(uint8_t id)
+{
+	switch ( id )
+	{
+	case UCD_SUBRQ_PARAMETERS:
+	{
+		ucd_parameters_request_type *req = (ucd_parameters_request_type *)&feature_report[1];
+		req->sensitivity = sensitivity;
+	}
+	break;
+	case UCD_SUBRQ_CALIBRATION_SET_0:
+	case UCD_SUBRQ_CALIBRATION_SET_1:
+	case UCD_SUBRQ_CALIBRATION_SET_2:
+	case UCD_SUBRQ_CALIBRATION_SET_3:
+		eeprom_read_block(&feature_report[1],
+				  &ee_calibration[id - UCD_SUBRQ_CALIBRATION_SET_0],
+				  sizeof(ucd_calibration_request_type));
+		break;
+	}
+}
+
+void sensor_write_feature_data(uint8_t id)
+{
+	switch ( id )
+	{
+	case UCD_SUBRQ_PARAMETERS:
+	{
+		const ucd_parameters_request_type *req = (const ucd_parameters_request_type *)&feature_report[1];
+		sensitivity = req->sensitivity;
+	}
+	break;
+	case UCD_SUBRQ_CALIBRATION_SET_0:
+	case UCD_SUBRQ_CALIBRATION_SET_1:
+	case UCD_SUBRQ_CALIBRATION_SET_2:
+	case UCD_SUBRQ_CALIBRATION_SET_3:
+		if ( nb_eeprom_transfer )
+			break; /* EEPROM transfer already in progress, wait for it to complete.
+				* However, we have gotten our data garbled anyway :-( */
+		pd_eeprom_transfer = (uint8_t*)&ee_calibration[id - UCD_SUBRQ_CALIBRATION_SET_0];
+		ps_eeprom_transfer = feature_report + 1;
+		nb_eeprom_transfer = sizeof(ucd_calibration_request_type);
+		break;
+	}
+}
+
 USB_PUBLIC usbMsgLen_t usbFunctionSetup(uchar data[8])
 {
 	const usbRequest_t * const rq = (void *)data;
@@ -97,7 +149,7 @@ USB_PUBLIC usbMsgLen_t usbFunctionSetup(uchar data[8])
 				}
 				if ( UCD_SUBRQ_DATA_REPORT_ID == report_id )
 				{
-					/* data should already be loaded into feature_report */
+					sensor_read_feature_data(active_subrq_mux);
 					return sizeof(feature_report);
 				}
 				break;
@@ -137,34 +189,10 @@ USB_PUBLIC uchar usbFunctionWrite(uchar *data, uchar len)
 	{
 		ucd_mux_request_type *rq = (ucd_mux_request_type *)(feature_report+1);
 		active_subrq_mux = rq->subrq_id;
-		/* TODO: load data here */
-		switch ( active_subrq_mux )
-		{
-		case UCD_SUBRQ_PARAMETERS:
-			memcpy_P(feature_report+1, PSTR("param"), 5);
-			break;
-		case UCD_SUBRQ_CALIBRATION_SET_0:
-		case UCD_SUBRQ_CALIBRATION_SET_1:
-		case UCD_SUBRQ_CALIBRATION_SET_2:
-		case UCD_SUBRQ_CALIBRATION_SET_3:
-			memcpy_P(feature_report+1, PSTR("cal  "), 5);
-			feature_report[5] = 0x30 + active_subrq_mux-UCD_SUBRQ_CALIBRATION_SET_0;
-			break;
-		}
 	}
 	if ( UCD_SUBRQ_DATA_REPORT_ID == report_id )
 	{
-		/* TODO: process written data here */
-		switch ( active_subrq_mux )
-		{
-		case UCD_SUBRQ_PARAMETERS:
-			break;
-		case UCD_SUBRQ_CALIBRATION_SET_0:
-		case UCD_SUBRQ_CALIBRATION_SET_1:
-		case UCD_SUBRQ_CALIBRATION_SET_2:
-		case UCD_SUBRQ_CALIBRATION_SET_3:
-			break;
-		}
+		sensor_write_feature_data(active_subrq_mux);
 	}
 	return 1;
 }
@@ -185,6 +213,7 @@ INIT_FUNC_8 void late_init(void)
 {
 	usbInit();
 	sampler_init();
+	sensitivity = DEFAULT_SENSITIVITY;
 }
 
 #if defined(__GNUC__) && defined(__AVR__)
@@ -205,12 +234,22 @@ int main(void)
 		if ( usbInterruptIsReady() )
 			usbSetInterrupt((void*)&input_report, sizeof(input_report));
 
+		/* check for sample data availability */
 		if ( sampler_poll() )
 		{
 			const uint16_t fp_raw = sampler_get_sample();
 			const uint16_t fp_value = fp_reciprocal(fp_raw);
 			input_report = fp_to_uint16(fp_value);
 			sampler_start();
+		}
+
+		/* check if background eeprom write operation pending */
+		if ( nb_eeprom_transfer )
+		{
+			const uint8_t data = *ps_eeprom_transfer++;
+			eeprom_write_byte(pd_eeprom_transfer, data);
+			++pd_eeprom_transfer;
+			--nb_eeprom_transfer;
 		}
 	}
 }
