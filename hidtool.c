@@ -85,7 +85,7 @@ void pretty_print_hid_attrs(struct hiddev_attr const *attrs, char const *msg_pre
 	    attrs->devname);
 }
 
-void pretty_print_buffer(uint8_t *buf, size_t size)
+void pretty_print_buffer(const uint8_t *buf, size_t size)
 {
 	size_t ofs = 0;
 	while ( ofs < size )
@@ -624,7 +624,7 @@ int hiddev_get_feature_report(int fd, int report_id, unsigned char *buffer, size
 	 */
 	for(i=0; i!=report_length; ++i)
 		DBG("report[%d] = %04x", i, ref_multi_i.values[i]);
-	for(i=0; i<report_length-1; i++)
+	for(i=0; i!=report_length; i++)
 		buffer[i] = ref_multi_i.values[i];
 
 	return report_length;
@@ -644,6 +644,7 @@ int hiddev_set_feature_report(int fd, int report_id, const unsigned char *buffer
 	finfo.field_index = 0;
 	ret = ioctl(fd, HIDIOCGFIELDINFO, &finfo);
 	report_length = finfo.maxusage;
+	DBG("field_index %d", finfo.field_index);
 	DBG("report length %d", report_length);
 	if ( length > report_length )
 	{
@@ -653,15 +654,15 @@ int hiddev_set_feature_report(int fd, int report_id, const unsigned char *buffer
 	}
 
 	/* multibyte transfer from local buffer */
-	for(i=0; i<report_length-1; i++)
+	for(i=0; i<report_length; i++)
 		ref_multi_i.values[i] = buffer[i];
 	ref_multi_i.uref.report_type = HID_REPORT_TYPE_FEATURE;
 	ref_multi_i.uref.report_id = report_id;
-	ref_multi_i.uref.field_index = 0;
+	ref_multi_i.uref.field_index = /*finfo.field_index*/0;
 	ref_multi_i.uref.usage_index = 0; /* byte index??? */
-	ref_multi_i.uref.usage_code = 0;
-	ref_multi_i.num_values = report_length;
-	ret = ioctl(fd, HIDIOCGUSAGES, &ref_multi_i);
+//	ref_multi_i.uref.usage_code = 0xff000003;
+	ref_multi_i.num_values = length;
+	ret = ioctl(fd, HIDIOCSUSAGES, &ref_multi_i);
 	if (ret != 0)
 	{
 		int err = -errno;
@@ -680,7 +681,8 @@ int hiddev_set_feature_report(int fd, int report_id, const unsigned char *buffer
 		ERR("HIDIOCSREPORT (%s)\n", strerror(errno));
 		return err;
 	}
-
+	DBG("report ok");
+	err = 0;
 	return err;
 }
 
