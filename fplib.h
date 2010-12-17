@@ -9,6 +9,7 @@
 
 typedef uint16_t fp16_t;
 
+#define FP16_EXPONENT_MAX 0xF
 #define FP16_MAX 0x10000000UL
 #define FP16_MIN 0x0
 
@@ -21,6 +22,7 @@ inline uint16_t fp_extract_sig(fp16_t f) FORCEINLINE;
 inline uint8_t fp_extract_exp(fp16_t f) FORCEINLINE;
 inline fp16_t fp_reciprocal(fp16_t f) FORCEINLINE;
 inline uint32_t fp_to_uint32(fp16_t f) FORCEINLINE;
+inline uint16_t fp_to_uint16(fp16_t f) FORCEINLINE;
 
 inline fp16_t fp_compose(uint16_t mantissa, uint8_t exponent)
 {
