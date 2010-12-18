@@ -196,6 +196,26 @@ exit:
 	return err;
 }
 
+int do_command_monitor(int fd)
+{
+	int err;
+	int32_t value;
+
+	for(;;)
+	{
+		err = hiddev_get_report(fd, (uint8_t*)&value, sizeof(value));
+		if ( err < 0 )
+		{
+			ERR("hiddev_get_report failure: %d", err);
+			goto exit;
+		}
+		MSG("Light level: %d", value);
+	}
+
+exit:
+	return err;
+}
+
 int do_command_feature_get(int fd)
 {
 	int report_id = 0;
@@ -296,6 +316,10 @@ int do_command(char const *device)
 	else if ( !strcmp(command,"info") )
 	{
 		err = do_command_info(fd);
+	}
+	else if ( !strcmp(command, "monitor") )
+	{
+		err = do_command_monitor(fd);
 	}
 	else
 	{
@@ -558,9 +582,11 @@ int hiddev_get_report(int fd, uint8_t *buf, size_t buf_size)
 		goto exit;
 	}
 	
+#if 0
 	DBG("got %d bytes of event data", err);
 	DBG("event.hid=%x", event.hid);
 	DBG("event.value=%x", event.value);
+#endif
 
 #ifndef min
 #define min(a,b) ( ((a)<(b))?(a):(b) )
