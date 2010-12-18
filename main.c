@@ -26,6 +26,7 @@
 #define USBRQ_HID_REPORT_TYPE_OUTPUT 2
 #define USBRQ_HID_REPORT_TYPE_FEATURE 3
 #define DEFAULT_SENSITIVITY 0
+#define HARD_SENSITIVITY_OFFSET 6
 
 /* globals */
 NOINIT uint8_t mcusr_mirror;
@@ -237,9 +238,10 @@ int main(void)
 		/* check for sample data availability */
 		if ( sampler_poll() )
 		{
-			const uint16_t fp_raw = sampler_get_sample();
-			const uint16_t fp_value = fp_reciprocal(fp_raw);
-			input_report = fp_to_uint16(fp_value);
+			const fp16_t fp_raw = sampler_get_sample();
+			const fp16_t fp_inv = fp_inverse(fp_raw);
+			const fp16_t fp_offset = fp_shift(fp_inv, sensitivity + HARD_SENSITIVITY_OFFSET);
+			input_report = fp_to_uint16_high(fp_offset);
 			sampler_start();
 		}
 

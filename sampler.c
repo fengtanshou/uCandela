@@ -175,7 +175,7 @@ uint8_t  sampler_poll(void)
 fp16_t sampler_get_sample(void)
 {
 	/* return adjusted result based on prescaler */
-	return fp_compose( ((uint16_t)sampler_value)<<8, s_prescaler - 1 );
+	return fp_compose(sampler_value, s_prescaler - 1 );
 }
 
 fp16_t
