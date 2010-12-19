@@ -575,13 +575,35 @@ int hiddev_get_report(int fd, uint8_t *buf, size_t buf_size)
 		.num_fields = 2
 	};
 	
-	if ( ioctl(fd, HIDIOCGREPORT, &rinfo) == -1
-	     || (err = read(fd, &event, sizeof(event))) == -1 )
+	fd_set rfd;
+	struct timeval timeout;
+
+	FD_ZERO(&rfd);
+	FD_SET(fd, &rfd);
+	timeout.tv_sec = 0;
+	timeout.tv_usec = 500000L;
+	err = select(fd+1, &rfd, 0, 0, &timeout);
+	if ( err < 0 )
 	{
 		err = -errno;
 		goto exit;
 	}
-	
+	if ( err > 0 && FD_ISSET(fd, &rfd) )
+		goto readnow;
+
+	/* timeout, ask the kernel to receive a report */
+	if ( ioctl(fd, HIDIOCGREPORT, &rinfo) == -1 )
+	{
+		err = -errno;
+		goto exit;
+	}
+
+readnow:
+	if ( (err = read(fd, &event, sizeof(event))) == -1 )
+	{
+		err = -errno;
+		goto exit;
+	}
 #if 0
 	DBG("got %d bytes of event data", err);
 	DBG("event.hid=%x", event.hid);
