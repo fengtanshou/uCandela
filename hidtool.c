@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <ctype.h>
 #include <unistd.h>
+#include <time.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
@@ -34,7 +35,7 @@
 
 #define DEFAULT_VID 0x16C0
 #define DEFAULT_PID 0x05DF
-
+#define DEFAULT_SAMPLE_PERIOD 1
 
 /*
  * structures
@@ -205,17 +206,96 @@ exit:
 int do_command_monitor(int fd)
 {
 	int err;
-	int32_t value;
+	unsigned int timeout = DEFAULT_SAMPLE_PERIOD;
 
+	int ch;
+	while ( (ch=getopt(ARGC_, ARGV_, "t:")) != -1 )
+		switch ( ch )
+		{
+		case 't':
+			timeout = strtoul(optarg, 0, 0);
+			if ( !timeout ) return -EINVAL;
+			break;
+		default: return -EINVAL;
+		}
+	shift_argv_n(optind);
+
+	const int xcmd = !!ARGC_;
+
+	unsigned int average = 0;
+	unsigned int avg_count;
+	time_t t_st = time(0);
+	char *s_output_value = 0;
+	size_t z_output_value = 0;
 	for(;;)
 	{
+		/* get sample */
+		int32_t value;
 		err = hiddev_get_report(fd, (uint8_t*)&value, sizeof(value));
 		if ( err < 0 )
 		{
 			ERR("hiddev_get_report failure: %d", err);
 			goto exit;
 		}
-		fprintf(stdout, "Light level: %d\n", value);
+		average += value;
+		avg_count++;
+
+		/* check time */
+		const time_t now = time(0);
+		if ( now - t_st < timeout ) continue;
+		t_st = now;
+
+		/* compute average and produce output string */
+		average /= avg_count;
+		int n;
+	print_again:
+		n = snprintf(s_output_value, z_output_value, "_HID_VALUE=%d", average);
+		if ( n > 0 && n+1 > z_output_value )
+		{
+			z_output_value = n + 1;
+			s_output_value = realloc(s_output_value, z_output_value);
+			goto print_again;
+		}
+
+		/* format output value */
+		if ( xcmd )
+		{
+			err = putenv(s_output_value);
+			if ( err != 0 )
+			{
+				err = -errno;
+				WARN("putenv error %d", err);
+				goto next_cycle;
+			}
+
+			pid_t pid = fork();
+			if ( pid == -1 )
+			{
+				err = -errno;
+				WARN("fork error %d", err);
+				goto next_cycle;
+			}
+
+			if ( pid == 0 )
+			{
+				/* prepare for exec */
+				char *args[ARGC_ + 4];
+				args[0] = "/bin/sh";
+				args[1] = "-c";
+				int i;
+				for(i=0; i!=ARGC_; ++i) args[2+i] = ARGV_[i];
+				args[2+i] = '\0';
+				err = execv(args[0], args);
+				_exit(1);
+			}
+		}
+		else
+			fprintf(stdout, "Light level: %d\n", average);
+
+	next_cycle:
+		/* reset for next measurement cycle */
+		average = 0;
+		avg_count = 0;
 	}
 
 exit:
