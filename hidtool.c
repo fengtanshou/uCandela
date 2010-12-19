@@ -17,15 +17,20 @@
 /*
  * macros
  */
-#define msg__(stream, fmt, ...) fprintf(stream, fmt "\n", ##__VA_ARGS__)
+#define MSG_ERR 0
+#define MSG_WARN 1
+#define MSG_INFO 2
+#define MSG_DEBUG 3
+
+#define msg__(level, stream, fmt, ...) do { if ( (level) <= g_msglevel ) fprintf(stream, fmt "\n", ##__VA_ARGS__); } while (0)
 #ifndef NODEBUG
-#define DBG(fmt, ...) msg__(stderr, "%s:%d: " fmt, __FILE__, __LINE__, ##__VA_ARGS__)
+#define DBG(fmt, ...) msg__(MSG_DEBUG, stderr, "%s:%d: " fmt, __FILE__, __LINE__, ##__VA_ARGS__)
 #else
 #define DBG(fmt, ...) ((void)0)
 #endif
-#define MSG(fmt, ...) msg__(stdout, fmt, ##__VA_ARGS__)
-#define WARN(fmt, ...) msg__(stderr, fmt, ##__VA_ARGS__)
-#define ERR(fmt, ...) msg__(stderr, fmt, ##__VA_ARGS__)
+#define MSG(fmt, ...) msg__(MSG_INFO, stdout, fmt, ##__VA_ARGS__)
+#define WARN(fmt, ...) msg__(MSG_WARN, stderr, fmt, ##__VA_ARGS__)
+#define ERR(fmt, ...) msg__(MSG_ERR, stderr, fmt, ##__VA_ARGS__)
 
 #define DEFAULT_VID 0x16C0
 #define DEFAULT_PID 0x05DF
@@ -57,6 +62,7 @@ struct hiddev_attr
 static const char devusb_dir_default[] = "/dev/usb";
 static int ARGC_=0;
 static char **ARGV_=0;
+static int g_msglevel = MSG_INFO;
 
 /*
  * prototypes
