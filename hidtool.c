@@ -28,7 +28,7 @@
 #else
 #define DBG(fmt, ...) ((void)0)
 #endif
-#define MSG(fmt, ...) msg__(MSG_INFO, stdout, fmt, ##__VA_ARGS__)
+#define MSG(fmt, ...) msg__(MSG_INFO, stderr, fmt, ##__VA_ARGS__)
 #define WARN(fmt, ...) msg__(MSG_WARN, stderr, fmt, ##__VA_ARGS__)
 #define ERR(fmt, ...) msg__(MSG_ERR, stderr, fmt, ##__VA_ARGS__)
 
@@ -215,9 +215,23 @@ int do_command_monitor(int fd)
 			ERR("hiddev_get_report failure: %d", err);
 			goto exit;
 		}
-		MSG("Light level: %d", value);
+		fprintf(stdout, "Light level: %d\n", value);
 	}
 
+exit:
+	return err;
+}
+
+int do_command_sample(int fd)
+{
+	int32_t value;
+	int err = hiddev_get_report(fd, (uint8_t *)&value, sizeof(value));
+	if ( err < 0 )
+	{
+		ERR("hiddev_get_report failure: %d", err);
+		goto exit;
+	}
+	fprintf(stdout, "%d\n", value);
 exit:
 	return err;
 }
@@ -326,6 +340,10 @@ int do_command(char const *device)
 	else if ( !strcmp(command, "monitor") )
 	{
 		err = do_command_monitor(fd);
+	}
+	else if ( !strcmp(command, "sample") )
+	{
+		err = do_command_sample(fd);
 	}
 	else
 	{
