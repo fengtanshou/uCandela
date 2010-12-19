@@ -11,7 +11,7 @@
 #include <sys/ioctl.h>
 #include <fcntl.h>
 #include <dirent.h>
-
+#include <signal.h>
 #include <linux/hiddev.h>
 
 
@@ -221,10 +221,12 @@ int do_command_monitor(int fd)
 	shift_argv_n(optind);
 
 	const int xcmd = !!ARGC_;
+	if ( xcmd )
+		signal(SIGCHLD, SIG_IGN);
 
 	unsigned int average = 0;
-	unsigned int avg_count;
-	time_t t_st = time(0);
+	unsigned int avg_count = 0;
+	time_t t_st = 0;
 	char *s_output_value = 0;
 	size_t z_output_value = 0;
 	for(;;)
