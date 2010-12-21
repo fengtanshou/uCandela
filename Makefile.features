@@ -1,6 +1,7 @@
 
 ASOURCES += sampler_irq.S
 CSOURCES += sampler.c
+CSOURCES += fplib.c
 
 ifeq '$(FEAT_WITH_SERIAL)' 'yes'
 CSOURCES += serial_main.c
