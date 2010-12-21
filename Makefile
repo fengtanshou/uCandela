@@ -36,6 +36,8 @@ COMMON_FLAGS += -Os -Wall -mmcu=$(CPU)
 COMMON_FLAGS += $(addprefix -D,$(DEFINES))
 ifdef NDEBUG
 COMMON_FLAGS += -DNDEBUG=1
+else
+COMMON_FLAGS += -g
 endif
 
 ASFLAGS = $(COMMON_FLAGS)
