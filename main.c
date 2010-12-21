@@ -248,9 +248,10 @@ int main(void)
 		/* check if background eeprom write operation pending */
 		if ( nb_eeprom_transfer )
 		{
-			const uint8_t data = *ps_eeprom_transfer++;
-			eeprom_write_byte(pd_eeprom_transfer, data);
-			++pd_eeprom_transfer;
+			eeprom_write_byte(
+				pd_eeprom_transfer++,
+				*ps_eeprom_transfer++
+				);
 			--nb_eeprom_transfer;
 		}
 	}
