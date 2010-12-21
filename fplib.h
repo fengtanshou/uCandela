@@ -31,8 +31,9 @@ inline uint32_t fp_to_uint32(fp16_t f) FORCEINLINE;
 inline uint32_t fp_to_uint32_high(fp16_t f) FORCEINLINE;
 inline uint16_t fp_to_uint16(fp16_t f) FORCEINLINE;
 inline uint16_t fp_to_uint16_high(fp16_t f) FORCEINLINE;
+inline fp16_t fp_shift(fp16_t fp, int8_t shift);
 fp16_t fp_inverse(fp16_t f);
-fp16_t fp_shift(fp16_t fp, int8_t shift);
+fp16_t fp_normalize(uint16_t sig, int8_t exp);
 
 FORCEINLINE inline fp16_t fp_mask_sig(fp16_t f)
 {
@@ -85,6 +86,15 @@ inline uint16_t fp_to_uint16_high(fp16_t f)
 inline uint16_t fp_to_uint16(fp16_t f)
 {
 	return fp_extract_sig(f) << fp_extract_exp(f);
+}
+
+
+inline fp16_t fp_shift(fp16_t fp, int8_t shift)
+{
+	const uint16_t sig = fp_extract_sig(fp);
+	const int8_t exp = fp_extract_exp(fp) + shift;
+
+	return fp_normalize(sig, exp);
 }
 
 #endif /* FPLIB_H_INC */
