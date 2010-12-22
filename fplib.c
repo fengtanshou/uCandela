@@ -15,7 +15,7 @@ static const uint8_t precision_bits = 8;
 typedef uint8_t sig_type;
 #endif
 
-fp16_t fp_inverse(fp16_t f)
+fp16_t fp_inverse(const fp16_t f, int8_t extra_shift)
 {
 	/* constants */
 	const sig_type precision_mask = 1<<(precision_bits-1);
@@ -24,20 +24,19 @@ fp16_t fp_inverse(fp16_t f)
 	 * with numerator=0x10000
 	 * to obtain inverse of the significand
 	 */
-	sig_type sig = fp_extract_sig(f)+1;
+	const sig_type sig = fp_mask_sig(f)+1;
 	sig_type partial = 1;
 	sig_type result = 0;
-	u_smallint_t shift = 0;
 
-	 /* HACK: this is necessary for number > 0x80 due to limited width of CPU regs */
-	if ( sig > ( ((sig_type)-1) / 2 ) )
-	{
-		sig >>= 1;
-		shift = 1;
-	}
+	/* shift is the (strictly positive) number of extra left shifts
+	 * that must be applied to the result to position binary point correctly
+	 */
+	smallint_t shift;
 
-//	printf("\t --- divide by %02x\n", sig);
-	for(; shift!=precision_bits*2; ++shift)
+	/* total sweep is 2*precision_bits (double the precision of significand) */
+	for(shift = FP16_EXPONENT_MAX - 1 + precision_bits;
+	    shift != FP16_EXPONENT_MAX - 1 - precision_bits; 
+	    --shift)
 	{
 		partial <<= 1;
 		result <<= 1;
@@ -49,14 +48,9 @@ fp16_t fp_inverse(fp16_t f)
 		/* terminate if desired precision is achieved */
 		if ( result & precision_mask ) break;
 	}
-	/* shift is the (strictly positive) number of extra right shifts
-	 * that must be applied to the result to position binary point correctly
-	 */
-	shift -= precision_bits-1;
-	/* result is always in range 0 - 0xFFF due to precision limit */
 
 	/* perform exponent computations */
-	smallint_t exp = - fp_extract_exp(f) - shift + FP16_EXPONENT_MAX;
+	const smallint_t exp = shift - fp_extract_exp(f) + extra_shift;
 	return fp_normalize(result, exp);
 }
 

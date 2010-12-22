@@ -238,10 +238,22 @@ int main(void)
 		/* check for sample data availability */
 		if ( sampler_poll() )
 		{
-			const fp16_t fp_raw = sampler_get_sample();
-			const fp16_t fp_inv = fp_inverse(fp_raw);
-			const fp16_t fp_offset = fp_shift(fp_inv, sensitivity + HARD_SENSITIVITY_OFFSET);
-			input_report = fp_to_uint16_high(fp_offset);
+			const uint16_t fp_sample = sampler_get_sample();
+#ifdef FEAT_FLOATING_POINT
+			input_report = fp_to_uint16_high(
+				fp_inverse(
+					fp_sample,
+					sensitivity + HARD_SENSITIVITY_OFFSET)
+				);
+#else
+			const uint32_t sample = fp_to_uint32(fp_sample);
+			const uint32_t inv = 0x8000000UL / sample;
+			const uint32_t shift = (sensitivity + HARD_SENSITIVITY_OFFSET >= 0 )
+				? ( inv << (sensitivity + HARD_SENSITIVITY_OFFSET))
+				: ( inv >> -(sensitivity + HARD_SENSITIVITY_OFFSET))
+				;
+			input_report = (shift << 5 ) >> 16;
+#endif
 			sampler_start();
 		}
 

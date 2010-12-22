@@ -32,7 +32,9 @@ inline uint32_t fp_to_uint32_high(fp16_t f) FORCEINLINE;
 inline uint16_t fp_to_uint16(fp16_t f) FORCEINLINE;
 inline uint16_t fp_to_uint16_high(fp16_t f) FORCEINLINE;
 inline fp16_t fp_shift(fp16_t fp, int8_t shift);
-fp16_t fp_inverse(fp16_t f);
+
+/* computes 2**extra_shift/f */
+fp16_t fp_inverse(fp16_t f, int8_t extra_shift);
 fp16_t fp_normalize(uint16_t sig, int8_t exp);
 
 FORCEINLINE inline fp16_t fp_mask_sig(fp16_t f)
