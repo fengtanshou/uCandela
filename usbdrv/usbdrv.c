@@ -29,7 +29,7 @@ uchar       usbConfiguration;   /* currently selected configuration. Administere
 volatile schar usbRxLen;        /* = 0; number of bytes in usbRxBuf; 0 means free, -1 for flow control */
 uchar       usbCurrentTok;      /* last token received or endpoint number for last OUT token if != 0 */
 uchar       usbRxToken;         /* token for data we received; or endpont number for last OUT */
-volatile uchar usbTxLen = USBPID_NAK;   /* number of bytes to transmit with next IN token or handshake token */
+volatile uchar usbTxLen;        /* number of bytes to transmit with next IN token or handshake token */
 uchar       usbTxBuf[USB_BUFSIZE];/* data to transmit with next IN, free if usbTxLen contains handshake token */
 #if USB_COUNT_SOF
 volatile uchar  usbSofCount;    /* incremented by assembler module every SOF */
@@ -46,7 +46,7 @@ uchar       usbCurrentDataToken;/* when we check data toggling to ignore duplica
 
 /* USB status registers / not shared with asm code */
 uchar               *usbMsgPtr;     /* data to transmit next -- ROM or RAM address */
-static usbMsgLen_t  usbMsgLen = USB_NO_MSG; /* remaining number of bytes */
+static usbMsgLen_t  usbMsgLen; /* remaining number of bytes */
 static uchar        usbMsgFlags;    /* flag values see below */
 
 #define USB_FLG_MSGPTR_IS_ROM   (1<<6)
@@ -606,6 +606,8 @@ isNotReset:
 
 USB_PUBLIC void usbInit(void)
 {
+    usbMsgLen = USB_NO_MSG;
+    usbTxLen = USBPID_NAK;
 #if USB_INTR_CFG_SET != 0
     USB_INTR_CFG |= USB_INTR_CFG_SET;
 #endif
