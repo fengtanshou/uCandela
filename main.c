@@ -26,7 +26,7 @@
 #define USBRQ_HID_REPORT_TYPE_OUTPUT 2
 #define USBRQ_HID_REPORT_TYPE_FEATURE 3
 #define DEFAULT_SENSITIVITY 0
-#define HARD_SENSITIVITY_OFFSET 6
+#define HARD_SENSITIVITY_OFFSET 10
 
 /* globals */
 NOINIT uint8_t mcusr_mirror;
@@ -240,7 +240,7 @@ int main(void)
 		{
 			const uint16_t fp_sample = sampler_get_sample();
 #ifdef FEAT_FLOATING_POINT
-			input_report = fp_to_uint16_high(
+			input_report = fp_to_uint16(
 				fp_inverse(
 					fp_sample,
 					sensitivity + HARD_SENSITIVITY_OFFSET)
