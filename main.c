@@ -25,7 +25,7 @@
 #define USBRQ_HID_REPORT_TYPE_INPUT 1
 #define USBRQ_HID_REPORT_TYPE_OUTPUT 2
 #define USBRQ_HID_REPORT_TYPE_FEATURE 3
-#define HARD_SENSITIVITY_OFFSET 10
+#define HARD_SENSITIVITY_OFFSET 12
 
 #define min(a,b) ( ((a)<(b))?(a):(b) )
 
@@ -253,21 +253,15 @@ int main(void)
 		if ( sampler_poll() )
 		{
 			const uint16_t fp_sample = sampler_get_sample();
-#ifdef FEAT_FLOATING_POINT
-			input_report = fp_to_uint16(
-				fp_inverse(
-					fp_sample,
-					g_parameters.sensitivity + HARD_SENSITIVITY_OFFSET)
-				);
-#else
-			const uint32_t sample = fp_to_uint32(fp_sample);
-			const uint32_t inv = 0x8000000UL / sample;
-			const uint32_t shift = (sensitivity + HARD_SENSITIVITY_OFFSET >= 0 )
-				? ( inv << (sensitivity + HARD_SENSITIVITY_OFFSET))
-				: ( inv >> -(sensitivity + HARD_SENSITIVITY_OFFSET))
-				;
-			input_report = (shift << 5 ) >> 16;
-#endif
+			const uint16_t sample = 
+				fp_to_uint16(
+					fp_inverse(
+						fp_sample,
+						g_parameters.sensitivity + HARD_SENSITIVITY_OFFSET)
+					);
+			/* filter values: report = 15/16 * sample + 1/16 * input_report */
+			const uint8_t filter_strength = 1;
+			input_report = sample - (sample>>filter_strength) + (input_report>>filter_strength);
 			sampler_start();
 		}
 

@@ -8,7 +8,6 @@ DEFINES = F_CPU=12000000
 FEAT_WITH_USB ?= yes
 FEAT_WITH_SERIAL ?= no
 FEAT_USB_DRIVER ?= vusb
-FEAT_FLOATING_POINT ?= yes
 include Makefile.features
 
 #

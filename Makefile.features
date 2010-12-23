@@ -1,11 +1,7 @@
 
 ASOURCES += sampler_irq.S
 CSOURCES += sampler.c
-
-ifeq '$(FEAT_FLOATING_POINT)' 'yes'
 CSOURCES += fplib.c
-DEFINES += FEAT_FLOATING_POINT
-endif
 
 ifeq '$(FEAT_WITH_SERIAL)' 'yes'
 CSOURCES += serial_main.c
