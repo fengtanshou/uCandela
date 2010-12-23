@@ -55,20 +55,22 @@ static struct
 ucd_parameters_request_type g_parameters;
 
 /* we use combined report, INPUT returns data, FEATURE allows for controlling of parameters */
-PROGMEM char usbHidReportDescriptor[63] = {
+PROGMEM char usbHidReportDescriptor[49] = {
 	/* input part */
 	0x06, 0x00, 0xff,              // USAGE_PAGE (Vendor Defined Page 1)
 	0xa1, 0x01,                    // COLLECTION (Application)
 	0x15, 0x00,                    //   LOGICAL_MINIMUM (0)
 	0x27, 0xff, 0xff, 0x00, 0x00,  //   LOGICAL_MAXIMUM (65535)
+#if 0
 	0x35, 0x00,                    //   PHYSICAL_MINIMUM (0)
 	0x47, 0xff, 0xff, 0x00, 0x00,  //   PHYSICAL_MAXIMUM (65535)
 	0x55, 0x0E,                    //   UNIT_EXPONENT (-2)
 	0x67, 0xe1, 0x00, 0x00, 0x01,  //   UNIT (SI Lin:0x10000e1)
+#endif
 	0x75, 0x10,                    //   REPORT_SIZE (16)
 	0x95, 0x01,                    //   REPORT_COUNT (1)
 	0x09, 0x01,                    //   USAGE(vendor usage 1)
-	0x82, 0x62, 0x01,              // INPUT (Data,Var,Abs,NPrf,Null,Buf)
+	0x82, 0x22, 0x01,              // INPUT (Data,Var,Abs,NPrf,Buf)
 
 	0x15, 0x00,                    //   LOGICAL_MINIMUM (0)
 	0x26, 0xff, 0x00,              //   LOGICAL_MAXIMUM (255)
