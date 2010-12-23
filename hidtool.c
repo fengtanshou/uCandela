@@ -35,7 +35,7 @@
 
 #define DEFAULT_VID 0x16C0
 #define DEFAULT_PID 0x05DF
-#define DEFAULT_SAMPLE_PERIOD 1
+#define DEFAULT_SAMPLE_PERIOD 0
 
 /*
  * structures
