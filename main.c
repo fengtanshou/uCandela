@@ -25,20 +25,26 @@
 #define USBRQ_HID_REPORT_TYPE_INPUT 1
 #define USBRQ_HID_REPORT_TYPE_OUTPUT 2
 #define USBRQ_HID_REPORT_TYPE_FEATURE 3
-#define DEFAULT_SENSITIVITY 0
 #define HARD_SENSITIVITY_OFFSET 10
+
+#define min(a,b) ( ((a)<(b))?(a):(b) )
 
 /* globals */
 NOINIT uint8_t mcusr_mirror;
-static uint8_t sensitivity;
+/* globals: reports */
 static uint16_t input_report;
 static uint8_t feature_report[UCD_FEATURE_REPORT_COUNT+1];
 static uint8_t active_subrq_mux;
+/* globals: usb transfer data */
 static uint8_t nb_write_transfer;
 static uint8_t nb_write_max;
+/* globals: eeprom transfer data */
 static uint8_t *ps_eeprom_transfer;
 static uint8_t *pd_eeprom_transfer;
 static uint8_t nb_eeprom_transfer;
+
+/* globals: operating parameters */
+static int8_t sensitivity;
 
 /* we use combined report, INPUT returns data, FEATURE allows for controlling of parameters */
 PROGMEM char usbHidReportDescriptor[63] = {
@@ -73,7 +79,7 @@ PROGMEM char usbHidReportDescriptor[63] = {
 	0xc0,
 };
 
-ucd_calibration_request_type ee_calibration[4] EEMEM;
+ucd_calibration_request_type ee_calibration[8] EEMEM;
 
 /*
  * USB part
@@ -92,6 +98,10 @@ void sensor_read_feature_data(uint8_t id)
 	case UCD_SUBRQ_CALIBRATION_SET_1:
 	case UCD_SUBRQ_CALIBRATION_SET_2:
 	case UCD_SUBRQ_CALIBRATION_SET_3:
+	case UCD_SUBRQ_CALIBRATION_SET_4:
+	case UCD_SUBRQ_CALIBRATION_SET_5:
+	case UCD_SUBRQ_CALIBRATION_SET_6:
+	case UCD_SUBRQ_CALIBRATION_SET_7:
 		eeprom_read_block(&feature_report[1],
 				  &ee_calibration[id - UCD_SUBRQ_CALIBRATION_SET_0],
 				  sizeof(ucd_calibration_request_type));
@@ -113,6 +123,10 @@ void sensor_write_feature_data(uint8_t id)
 	case UCD_SUBRQ_CALIBRATION_SET_1:
 	case UCD_SUBRQ_CALIBRATION_SET_2:
 	case UCD_SUBRQ_CALIBRATION_SET_3:
+	case UCD_SUBRQ_CALIBRATION_SET_4:
+	case UCD_SUBRQ_CALIBRATION_SET_5:
+	case UCD_SUBRQ_CALIBRATION_SET_6:
+	case UCD_SUBRQ_CALIBRATION_SET_7:
 		if ( nb_eeprom_transfer )
 			break; /* EEPROM transfer already in progress, wait for it to complete.
 				* However, we have gotten our data garbled anyway :-( */
@@ -158,7 +172,7 @@ USB_PUBLIC usbMsgLen_t usbFunctionSetup(uchar data[8])
 			break;
 		case USBRQ_HID_SET_REPORT:
 			nb_write_transfer = 0;
-			nb_write_max = rq->wLength.bytes[0];
+			nb_write_max = min( rq->wLength.bytes[0], sizeof(feature_report) );
 			if ( USBRQ_HID_REPORT_TYPE_FEATURE == report_type ) /* wValue: ReportType (highbyte) */
 				return USB_NO_MSG;
 			break;
@@ -171,8 +185,6 @@ USB_PUBLIC usbMsgLen_t usbFunctionSetup(uchar data[8])
 	return 0;
 }
 
-#define min(a,b) ( ((a)<(b))?(a):(b) )
-
 USB_PUBLIC uchar usbFunctionWrite(uchar *data, uchar len)
 {
 	if ( nb_write_transfer >= nb_write_max )
@@ -182,7 +194,7 @@ USB_PUBLIC uchar usbFunctionWrite(uchar *data, uchar len)
 	while ( remaining-- )
 		feature_report[nb_write_transfer++] = *data++;
 
-	if ( (nb_write_transfer != nb_write_max) && (nb_write_transfer != sizeof(feature_report)) )
+	if ( nb_write_transfer != nb_write_max )
 		return 0; /* transfer still incomplete, more data expected */
 
 	const uint8_t report_id = feature_report[0];
@@ -214,7 +226,6 @@ INIT_FUNC_8 void late_init(void)
 {
 	usbInit();
 	sampler_init();
-	sensitivity = DEFAULT_SENSITIVITY;
 }
 
 #if defined(__GNUC__) && defined(__AVR__)
