@@ -44,7 +44,7 @@ static uint8_t *pd_eeprom_transfer;
 static uint8_t nb_eeprom_transfer;
 
 /* globals: operating parameters */
-static int8_t sensitivity;
+ucd_parameters_request_type g_parameters;
 
 /* we use combined report, INPUT returns data, FEATURE allows for controlling of parameters */
 PROGMEM char usbHidReportDescriptor[63] = {
@@ -89,10 +89,8 @@ void sensor_read_feature_data(uint8_t id)
 	switch ( id )
 	{
 	case UCD_SUBRQ_PARAMETERS:
-	{
-		ucd_parameters_request_type *req = (ucd_parameters_request_type *)&feature_report[1];
-		req->sensitivity = sensitivity;
-	}
+		memcpy(feature_report + 1, &g_parameters, sizeof(ucd_parameters_request_type));
+		break;
 	break;
 	case UCD_SUBRQ_CALIBRATION_SET_0:
 	case UCD_SUBRQ_CALIBRATION_SET_1:
@@ -114,11 +112,8 @@ void sensor_write_feature_data(uint8_t id)
 	switch ( id )
 	{
 	case UCD_SUBRQ_PARAMETERS:
-	{
-		const ucd_parameters_request_type *req = (const ucd_parameters_request_type *)&feature_report[1];
-		sensitivity = req->sensitivity;
-	}
-	break;
+		memcpy(&g_parameters, feature_report + 1, sizeof(ucd_parameters_request_type));
+		break;
 	case UCD_SUBRQ_CALIBRATION_SET_0:
 	case UCD_SUBRQ_CALIBRATION_SET_1:
 	case UCD_SUBRQ_CALIBRATION_SET_2:
@@ -254,7 +249,7 @@ int main(void)
 			input_report = fp_to_uint16(
 				fp_inverse(
 					fp_sample,
-					sensitivity + HARD_SENSITIVITY_OFFSET)
+					g_parameters.sensitivity + HARD_SENSITIVITY_OFFSET)
 				);
 #else
 			const uint32_t sample = fp_to_uint32(fp_sample);
