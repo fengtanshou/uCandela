@@ -35,13 +35,21 @@ NOINIT uint8_t mcusr_mirror;
 static uint16_t input_report;
 static uint8_t feature_report[UCD_FEATURE_REPORT_COUNT+1];
 static uint8_t active_subrq_mux;
-/* globals: usb transfer data */
-static uint8_t nb_write_transfer;
-static uint8_t nb_write_max;
-/* globals: eeprom transfer data */
-static uint8_t *ps_eeprom_transfer;
-static uint8_t *pd_eeprom_transfer;
-static uint8_t nb_eeprom_transfer;
+
+/* tracks progress of usb write */
+static struct
+{
+	uint8_t count;
+	uint8_t max;
+}usb_transfer;
+
+/* tracks progress of eeprom write transfer */
+static struct
+{
+	uint8_t *src;
+	uint8_t *dst;
+	uint8_t count;
+}eeprom_transfer;
 
 /* globals: operating parameters */
 ucd_parameters_request_type g_parameters;
@@ -122,12 +130,12 @@ void sensor_write_feature_data(uint8_t id)
 	case UCD_SUBRQ_CALIBRATION_SET_5:
 	case UCD_SUBRQ_CALIBRATION_SET_6:
 	case UCD_SUBRQ_CALIBRATION_SET_7:
-		if ( nb_eeprom_transfer )
+		if ( eeprom_transfer.count )
 			break; /* EEPROM transfer already in progress, wait for it to complete.
 				* However, we have gotten our data garbled anyway :-( */
-		pd_eeprom_transfer = (uint8_t*)&ee_calibration[id - UCD_SUBRQ_CALIBRATION_SET_0];
-		ps_eeprom_transfer = feature_report + 1;
-		nb_eeprom_transfer = sizeof(ucd_calibration_request_type);
+		eeprom_transfer.dst = (uint8_t*)&ee_calibration[id - UCD_SUBRQ_CALIBRATION_SET_0];
+		eeprom_transfer.src = feature_report + 1;
+		eeprom_transfer.count = sizeof(ucd_calibration_request_type);
 		break;
 	}
 }
@@ -166,8 +174,8 @@ USB_PUBLIC usbMsgLen_t usbFunctionSetup(uchar data[8])
 			}
 			break;
 		case USBRQ_HID_SET_REPORT:
-			nb_write_transfer = 0;
-			nb_write_max = min( rq->wLength.bytes[0], sizeof(feature_report) );
+			usb_transfer.count = 0;
+			usb_transfer.max = min( rq->wLength.bytes[0], sizeof(feature_report) );
 			if ( USBRQ_HID_REPORT_TYPE_FEATURE == report_type ) /* wValue: ReportType (highbyte) */
 				return USB_NO_MSG;
 			break;
@@ -182,14 +190,14 @@ USB_PUBLIC usbMsgLen_t usbFunctionSetup(uchar data[8])
 
 USB_PUBLIC uchar usbFunctionWrite(uchar *data, uchar len)
 {
-	if ( nb_write_transfer >= nb_write_max )
+	if ( usb_transfer.count >= usb_transfer.max )
 		return 1; /* transfer complete */
 
-	uint8_t remaining = min(nb_write_max-nb_write_transfer, len);
+	uint8_t remaining = min(usb_transfer.max - usb_transfer.count, len);
 	while ( remaining-- )
-		feature_report[nb_write_transfer++] = *data++;
+		feature_report[usb_transfer.count++] = *data++;
 
-	if ( nb_write_transfer != nb_write_max )
+	if ( usb_transfer.count != usb_transfer.max )
 		return 0; /* transfer still incomplete, more data expected */
 
 	const uint8_t report_id = feature_report[0];
@@ -264,13 +272,13 @@ int main(void)
 		}
 
 		/* check if background eeprom write operation pending */
-		if ( nb_eeprom_transfer )
+		if ( eeprom_transfer.count )
 		{
 			eeprom_write_byte(
-				pd_eeprom_transfer++,
-				*ps_eeprom_transfer++
+				eeprom_transfer.dst++,
+				*eeprom_transfer.src++
 				);
-			--nb_eeprom_transfer;
+			--eeprom_transfer.count;
 		}
 	}
 }
