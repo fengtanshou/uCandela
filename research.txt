@@ -1,0 +1,36 @@
+
+1. hal
+1.1 policy org.freedesktop.hal.power-management.light-sensor
+1.2 plugin hald/linux/addons/addon-macbookpro-backlight.c
+
+2. upower - does not support ALSs
+
+3. gnome-power-manager
+3.1 ambient light sensor support removed
+3.2 why it was removed?
+    http://lists.freedesktop.org/archives/devkit-devel/2009-July/000268.html
+
+4. other libs
+4.1 g-p-m < 2.27
+4.2 sensorframework
+
+5. HID structure
+
+
+6. ALS driver framework
+6.1 http://lwn.net/Articles/364193/
+6.2 TODO: implement usbhid -> ALS driver when ALS gets into mainline
+
+7. ambient light support in maemo? in meego?
+7.1 libfilter-brightness-als.so
+7.2 chroot /mnt/initfs dsmetest -l <1-255>
+    -> /sys/devices/platform/omapfb/panel/backlight_level 
+7.3 /etc/mce/mce.ini
+    Modules=homekey;filter-brightness-als;inactivity;camera;alarm
+7.4 https://garage.maemo.org/projects/autolock/
+7.5 http://wiki.maemo.org/Nokia_N810
+7.6 http://andrew.daviel.org/N810-FAQ.html#lux
+7.7 maemo source code
+    http://maemo.gitorious.org/
+
+8. http://blogs.gnome.org/hughsie/2006/09/
