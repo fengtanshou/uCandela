@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+  <class>MainWindow</class>
+  <widget class="QMainWindow" name="MainWindow">
+
+    <!-- basic window layout -->
+    <widget class="ChartWidget" name="chart">
+      <property name="minimumSize">
+	<size><width>384</width><height>256</height></size>
+      </property>
+    </widget>
+
+    <!-- toolbars -->
+    <widget class="QToolBar" name="toolBar">
+      <attribute name="toolBarArea">
+	<enum>TopToolBarArea</enum>
+      </attribute>
+      <attribute name="toolBarBreak">
+	<bool>false</bool>
+      </attribute>
+      <addaction name="actionRescan_bus"/>
+    </widget>
+
+    <!-- actions -->
+    <action name="actionRescan_bus">
+      <property name="text">
+	<string>&amp;Rescan Bus</string>
+      </property>
+    </action>
+  </widget>
+
+  <customwidgets>
+    <customwidget>
+      <class>ChartWidget</class>
+      <extends>QWidget</extends>
+      <header>chartwidget.h</header>
+    </customwidget>
+  </customwidgets>
+
+  <resources/>
+
+  <connections>
+    <connection>
+      <sender>testAmount</sender>
+      <signal>valueChanged(int)</signal>
+      <receiver>MainWindow</receiver>
+      <slot>valueChanged(int)</slot>
+    </connection>
+  </connections>
+</ui>
